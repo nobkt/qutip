@@ -94,9 +94,9 @@ class Spin1QubitEncoding:
             raise ValueError(f"Expected 3x1 state vector, got {spin1_state.shape}")
         
         # Extract coefficients
-        c_plus = spin1_state.data.toarray()[0, 0]
-        c_zero = spin1_state.data.toarray()[1, 0]
-        c_minus = spin1_state.data.toarray()[2, 0]
+        c_plus = spin1_state.data.to_array()[0, 0]
+        c_zero = spin1_state.data.to_array()[1, 0]
+        c_minus = spin1_state.data.to_array()[2, 0]
         
         # Encode into 2-qubit space
         qubit_state = (c_plus * self.state_00 +
@@ -123,7 +123,7 @@ class Spin1QubitEncoding:
             raise ValueError(f"Expected 4x1 state vector, got {qubit_state.shape}")
         
         # Extract coefficients
-        coeffs = qubit_state.data.toarray()
+        coeffs = qubit_state.data.to_array()
         c_plus = coeffs[0, 0]   # |00⟩ → |m=+1⟩
         c_zero = coeffs[1, 0]   # |01⟩ → |m= 0⟩
         c_minus = coeffs[2, 0]  # |10⟩ → |m=-1⟩
@@ -284,7 +284,7 @@ class Spin1QubitEncoding:
             raise ValueError(f"Expected 3x3 operator, got {spin1_operator.shape}")
         
         # Extract the 3x3 matrix
-        op_matrix = spin1_operator.data.toarray()
+        op_matrix = spin1_operator.data.to_array()
         
         # Create 4x4 matrix by embedding into the valid subspace
         qubit_matrix = np.zeros((4, 4), dtype=complex)
@@ -320,19 +320,19 @@ class Spin1QubitEncoding:
         # Check [Jx, Jy] = i*Jz (within the valid subspace)
         comm_xy = Jx * Jy - Jy * Jx
         expected_xy = 1j * Jz
-        diff_xy = (comm_xy - expected_xy).data.toarray()
+        diff_xy = (comm_xy - expected_xy).data.to_array()
         error_xy = np.max(np.abs(diff_xy))
         
         # Check [Jy, Jz] = i*Jx
         comm_yz = Jy * Jz - Jz * Jy
         expected_yz = 1j * Jx
-        diff_yz = (comm_yz - expected_yz).data.toarray()
+        diff_yz = (comm_yz - expected_yz).data.to_array()
         error_yz = np.max(np.abs(diff_yz))
         
         # Check [Jz, Jx] = i*Jy
         comm_zx = Jz * Jx - Jx * Jz
         expected_zx = 1j * Jy
-        diff_zx = (comm_zx - expected_zx).data.toarray()
+        diff_zx = (comm_zx - expected_zx).data.to_array()
         error_zx = np.max(np.abs(diff_zx))
         
         max_error = max(error_xy, error_yz, error_zx)
