@@ -31,6 +31,51 @@
 - QuTiPのコード例を豊富に掲載
 - 1200行以上の包括的な内容
 
+### 量子回路可視化のドキュメント (NEW)
+
+**images/**: 量子回路可視化の例
+- `example_circuit_orders.png`: 異なるトロッター次数の比較
+- `example_circuit_mixed.png`: 混合ハミルトニアン (Jz + Jx)
+- `circuit_simple.png`: 基本的な回路図
+
+詳細は `../qubit/CIRCUIT_VISUALIZATION.md` を参照してください。
+
+## 量子回路可視化
+
+鈴木トロッター分解によるスピンS=1量子ダイナミクスの量子回路可視化機能が実装されました。
+
+### 主な機能
+- テキスト形式とグラフィカル形式の回路図出力
+- 1次、2次、4次トロッター分解の可視化
+- ハミルトニアンの自動分解
+- チュートリアルノートブックとの統合
+
+### 使用例
+
+```python
+from qudit.qubit import StatevectorSimulator
+import qutip as qt
+import numpy as np
+
+simulator = StatevectorSimulator(trotter_order=2)
+H = 2 * np.pi * qt.jmat(1, 'z')
+times = np.linspace(0, 1.0, 20)
+
+# 回路の取得
+circuit = simulator.get_circuit(H, times)
+print(f"ゲート数: {len(circuit.gates)}")
+print(f"回路の深さ: {circuit.depth()}")
+
+# 回路の可視化
+fig, ax, circuit = simulator.visualize_circuit(
+    H, times, 
+    title="量子回路: ゼーマン効果"
+)
+plt.show()
+```
+
+詳細なドキュメントは `../qubit/CIRCUIT_VISUALIZATION.md` を参照してください。
+
 ## 関連リソース
 
 - [QuTiP公式ドキュメント](https://qutip.org/docs/latest/)

@@ -12,6 +12,7 @@ import qutip as qt
 
 from .spin1_encoding import Spin1QubitEncoding
 from .trotter_decomposition import SuzukiTrotterDecomposition
+from .circuit_visualization import QuantumCircuit, decompose_trotter_circuit
 
 
 class StatevectorSimulator:
@@ -184,7 +185,7 @@ class StatevectorSimulator:
         # For simplicity and rigor, we'll use the encoded Hamiltonian directly
         # and split it into Jz (diagonal) and Jx+Jy (off-diagonal) parts
         
-        H_matrix = hamiltonian.data.toarray()
+        H_matrix = hamiltonian.data.to_array()
         
         # Diagonal part (Jz component)
         diag_elements = np.diag(np.diag(H_matrix))
@@ -198,9 +199,9 @@ class StatevectorSimulator:
         
         # Return terms for Trotter decomposition
         terms = []
-        if np.max(np.abs(H_diag_qubit.data.toarray())) > 1e-14:
+        if np.max(np.abs(H_diag_qubit.data.to_array())) > 1e-14:
             terms.append(H_diag_qubit)
-        if np.max(np.abs(H_offdiag_qubit.data.toarray())) > 1e-14:
+        if np.max(np.abs(H_offdiag_qubit.data.to_array())) > 1e-14:
             terms.append(H_offdiag_qubit)
         
         # If no terms, return full Hamiltonian as single term
@@ -223,7 +224,7 @@ class StatevectorSimulator:
         populations : ndarray
             Array [P(m=+1), P(m=0), P(m=-1)]
         """
-        coeffs = state.data.toarray()
+        coeffs = state.data.to_array()
         pops = np.abs(coeffs.flatten()) ** 2
         return pops
     
@@ -297,3 +298,99 @@ class StatevectorSimulator:
         }
         
         return comparison
+    
+    def get_circuit(self, hamiltonian: qt.Qobj, times: np.ndarray) -> QuantumCircuit:
+        """
+        Get the quantum circuit representation for simulating the given Hamiltonian.
+        
+        This method generates the quantum circuit that would be used to simulate
+        the time evolution under the given Hamiltonian. The circuit represents
+        the Suzuki-Trotter decomposition applied at each time step.
+        
+        Parameters
+        ----------
+        hamiltonian : Qobj
+            3x3 spin-1 Hamiltonian operator
+        times : ndarray
+            Array of time points at which to evaluate the state
+            
+        Returns
+        -------
+        circuit : QuantumCircuit
+            Quantum circuit representation of the simulation
+        """
+        # Decompose Hamiltonian into terms (same as in simulate)
+        hamiltonian_terms_qubit = self._decompose_hamiltonian(hamiltonian)
+        
+        # Calculate time step
+        if len(times) > 1:
+            dt = times[1] - times[0]
+            num_steps = len(times) - 1
+        else:
+            dt = 0.0
+            num_steps = 0
+        
+        # Generate circuit for the Trotter decomposition
+        circuit = decompose_trotter_circuit(
+            hamiltonian_terms_qubit, 
+            dt, 
+            order=self.order,
+            num_steps=min(num_steps, 5)  # Limit visualization to first 5 steps
+        )
+        
+        return circuit
+    
+    def visualize_circuit(self, hamiltonian: qt.Qobj, times: np.ndarray, 
+                         fig=None, ax=None, title: Optional[str] = None):
+        """
+        Visualize the quantum circuit for simulating the given Hamiltonian.
+        
+        Parameters
+        ----------
+        hamiltonian : Qobj
+            3x3 spin-1 Hamiltonian operator
+        times : ndarray
+            Array of time points
+        fig : matplotlib.figure.Figure, optional
+            Figure to plot on
+        ax : matplotlib.axes.Axes, optional
+            Axes to plot on
+        title : str, optional
+            Title for the circuit diagram
+            
+        Returns
+        -------
+        fig : Figure
+            The matplotlib figure
+        ax : Axes
+            The matplotlib axes
+        circuit : QuantumCircuit
+            The quantum circuit object
+        """
+        circuit = self.get_circuit(hamiltonian, times)
+        
+        if title is None:
+            title = f"Suzuki-Trotter Circuit (Order {self.order})"
+        
+        fig, ax = circuit.visualize(fig=fig, ax=ax, title=title)
+        
+        return fig, ax, circuit
+    
+    def print_circuit(self, hamiltonian: qt.Qobj, times: np.ndarray) -> str:
+        """
+        Get a text representation of the quantum circuit.
+        
+        Parameters
+        ----------
+        hamiltonian : Qobj
+            3x3 spin-1 Hamiltonian operator
+        times : ndarray
+            Array of time points
+            
+        Returns
+        -------
+        text : str
+            Text representation of the circuit
+        """
+        circuit = self.get_circuit(hamiltonian, times)
+        return circuit.to_text()
