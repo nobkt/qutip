@@ -396,3 +396,247 @@ class StatevectorSimulator:
         """
         circuit = self.get_circuit(hamiltonian, times)
         return circuit.to_text()
+    
+    def simulate_with_qiskit(self,
+                            hamiltonian: qt.Qobj,
+                            initial_state: qt.Qobj,
+                            times: np.ndarray,
+                            observables: Optional[List[qt.Qobj]] = None) -> Dict:
+        """
+        Simulate spin-1 quantum dynamics using Qiskit's statevector simulator.
+        
+        This method executes the quantum circuits on Qiskit's statevector simulator
+        and computes expectation values and populations at each time point.
+        
+        Parameters
+        ----------
+        hamiltonian : Qobj
+            3x3 spin-1 Hamiltonian operator
+        initial_state : Qobj
+            3x1 initial state vector for spin-1
+        times : ndarray
+            Array of time points at which to evaluate the state
+        observables : list of Qobj, optional
+            List of 3x3 spin-1 operators to measure. If None, measures
+            Jx, Jy, Jz by default.
+            
+        Returns
+        -------
+        result : dict
+            Dictionary containing:
+            - 'times': time array
+            - 'states': list of spin-1 states at each time
+            - 'states_qubit': list of 2-qubit states from Qiskit
+            - 'expect': array of expectation values (n_times, n_observables)
+            - 'populations': array of populations |⟨m|ψ(t)⟩|² (n_times, 3)
+            
+        Raises
+        ------
+        ImportError
+            If Qiskit is not installed
+        """
+        try:
+            from qiskit import QuantumCircuit as QiskitQuantumCircuit
+            from qiskit.quantum_info import Statevector, Operator
+        except ImportError:
+            raise ImportError("Qiskit is not installed. Please install it with: pip install qiskit")
+        
+        # Set default observables if not provided
+        if observables is None:
+            observables = [qt.jmat(1, 'x'), qt.jmat(1, 'y'), qt.jmat(1, 'z')]
+        
+        # Encode initial state to qubit representation
+        psi0_qubit = self.encoder.encode_state(initial_state)
+        
+        # Get the 4x4 qubit state vector as numpy array
+        psi0_array = psi0_qubit.data.to_array().flatten()
+        
+        # Decompose Hamiltonian into terms for Trotter decomposition
+        hamiltonian_terms_qubit = self._decompose_hamiltonian(hamiltonian)
+        
+        # Prepare arrays for results
+        n_times = len(times)
+        n_obs = len(observables)
+        states_spin1 = []
+        states_qubit = []
+        expectations = np.zeros((n_times, n_obs))
+        populations = np.zeros((n_times, 3))
+        
+        # Store initial state
+        current_statevector = psi0_array
+        current_state_qubit = psi0_qubit
+        states_qubit.append(current_state_qubit)
+        states_spin1.append(initial_state)
+        
+        # Compute initial expectation values
+        for j, obs in enumerate(observables):
+            expectations[0, j] = qt.expect(obs, initial_state)
+        populations[0, :] = self._compute_populations(initial_state)
+        
+        # Time evolution using Qiskit
+        for i in range(1, n_times):
+            dt = times[i] - times[i-1]
+            
+            # Build the time evolution operator using Trotter decomposition
+            U = self.trotter.time_evolution_operator(hamiltonian_terms_qubit, dt)
+            
+            # Convert to Qiskit circuit
+            qc = QiskitQuantumCircuit(2)
+            
+            # Initialize with current state
+            qc.initialize(current_statevector, [0, 1])
+            
+            # Add the time evolution unitary
+            U_matrix = U.data.to_array()
+            operator = Operator(U_matrix)
+            # Qiskit uses little-endian convention, so reverse qubit order
+            qc.unitary(operator, [1, 0], label=f'U(dt={dt:.4f})')
+            
+            # Execute the circuit and get the resulting statevector
+            sv = Statevector.from_instruction(qc)
+            current_statevector = sv.data
+            
+            # Convert back to QuTiP Qobj
+            current_state_qubit = qt.Qobj(current_statevector.reshape(4, 1))
+            
+            # Normalize
+            current_state_qubit = current_state_qubit / current_state_qubit.norm()
+            
+            # Decode back to spin-1
+            current_state_spin1 = self.encoder.decode_state(current_state_qubit)
+            
+            # Store states
+            states_qubit.append(current_state_qubit)
+            states_spin1.append(current_state_spin1)
+            
+            # Compute expectation values
+            for j, obs in enumerate(observables):
+                expectations[i, j] = qt.expect(obs, current_state_spin1)
+            populations[i, :] = self._compute_populations(current_state_spin1)
+        
+        result = {
+            'times': times,
+            'states': states_spin1,
+            'states_qubit': states_qubit,
+            'expect': expectations,
+            'populations': populations
+        }
+        
+        return result
+    
+    def compare_all_methods(self,
+                           hamiltonian: qt.Qobj,
+                           initial_state: qt.Qobj,
+                           times: np.ndarray,
+                           observables: Optional[List[qt.Qobj]] = None) -> Dict:
+        """
+        Compare all three simulation methods: Qiskit, custom Trotter, and exact.
+        
+        This method runs the simulation using:
+        1. Qiskit's statevector simulator with quantum circuits
+        2. Custom statevector simulator with Trotter decomposition
+        3. QuTiP's exact solver (sesolve)
+        
+        Parameters
+        ----------
+        hamiltonian : Qobj
+            3x3 spin-1 Hamiltonian operator
+        initial_state : Qobj
+            3x1 initial state vector for spin-1
+        times : ndarray
+            Array of time points
+        observables : list of Qobj, optional
+            List of observables to measure
+            
+        Returns
+        -------
+        comparison : dict
+            Dictionary containing:
+            - 'qiskit': results from Qiskit simulation
+            - 'trotter': results from custom Trotter simulation
+            - 'exact': results from exact QuTiP solver
+            - 'errors': errors between methods
+        """
+        # Set default observables
+        if observables is None:
+            observables = [qt.jmat(1, 'x'), qt.jmat(1, 'y'), qt.jmat(1, 'z')]
+        
+        # Run Qiskit simulation
+        try:
+            result_qiskit = self.simulate_with_qiskit(hamiltonian, initial_state, times, observables)
+            qiskit_available = True
+        except ImportError:
+            result_qiskit = None
+            qiskit_available = False
+        
+        # Run custom Trotter simulation
+        result_trotter = self.simulate(hamiltonian, initial_state, times, observables)
+        
+        # Run exact simulation using QuTiP
+        result_exact = qt.sesolve(hamiltonian, initial_state, times, 
+                                   e_ops=observables,
+                                   options={'store_states': True})
+        
+        # Compute populations for exact solution
+        populations_exact = np.zeros((len(times), 3))
+        for i, t in enumerate(times):
+            if hasattr(result_exact.states[i], 'data'):
+                state_t = result_exact.states[i]
+                populations_exact[i, :] = self._compute_populations(state_t)
+        
+        # Prepare comparison results
+        comparison = {
+            'trotter': result_trotter,
+            'exact': {
+                'times': times,
+                'expect': np.array(result_exact.expect).T,
+                'populations': populations_exact,
+                'states': result_exact.states
+            },
+            'errors': {
+                'trotter_vs_exact': {
+                    'expect': np.abs(result_trotter['expect'] - np.array(result_exact.expect).T),
+                    'populations': np.abs(result_trotter['populations'] - populations_exact),
+                }
+            }
+        }
+        
+        if qiskit_available:
+            comparison['qiskit'] = result_qiskit
+            
+            # Compute errors between Qiskit and exact
+            qiskit_expect_error = np.abs(result_qiskit['expect'] - np.array(result_exact.expect).T)
+            qiskit_pop_error = np.abs(result_qiskit['populations'] - populations_exact)
+            
+            # Compute errors between Qiskit and Trotter
+            qiskit_trotter_expect_error = np.abs(result_qiskit['expect'] - result_trotter['expect'])
+            qiskit_trotter_pop_error = np.abs(result_qiskit['populations'] - result_trotter['populations'])
+            
+            comparison['errors']['qiskit_vs_exact'] = {
+                'expect': qiskit_expect_error,
+                'populations': qiskit_pop_error,
+                'max_expect_error': np.max(qiskit_expect_error),
+                'max_pop_error': np.max(qiskit_pop_error),
+                'mean_expect_error': np.mean(qiskit_expect_error),
+                'mean_pop_error': np.mean(qiskit_pop_error)
+            }
+            
+            comparison['errors']['qiskit_vs_trotter'] = {
+                'expect': qiskit_trotter_expect_error,
+                'populations': qiskit_trotter_pop_error,
+                'max_expect_error': np.max(qiskit_trotter_expect_error),
+                'max_pop_error': np.max(qiskit_trotter_pop_error),
+                'mean_expect_error': np.mean(qiskit_trotter_expect_error),
+                'mean_pop_error': np.mean(qiskit_trotter_pop_error)
+            }
+        else:
+            comparison['qiskit'] = None
+        
+        # Add summary statistics
+        trotter_errors = comparison['errors']['trotter_vs_exact']
+        comparison['errors']['trotter_vs_exact']['max_expect_error'] = np.max(trotter_errors['expect'])
+        comparison['errors']['trotter_vs_exact']['max_pop_error'] = np.max(trotter_errors['populations'])
+        comparison['errors']['trotter_vs_exact']['mean_expect_error'] = np.mean(trotter_errors['expect'])
+        comparison['errors']['trotter_vs_exact']['mean_pop_error'] = np.mean(trotter_errors['populations'])
+        
+        return comparison
