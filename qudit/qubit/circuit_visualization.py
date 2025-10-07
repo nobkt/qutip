@@ -210,13 +210,22 @@ class QuantumCircuit:
         
         return "\n".join(lines)
     
-    def to_qiskit(self):
+    def to_qiskit(self, decompose=False, basis_gates=None):
         """
         Convert the quantum circuit to Qiskit format.
         
         This method converts the custom circuit representation to a Qiskit
         QuantumCircuit object. Each gate with a matrix representation is
-        converted to a Qiskit Unitary gate.
+        converted to a Qiskit gate.
+        
+        Parameters
+        ----------
+        decompose : bool, optional
+            If True, decompose multi-qubit unitaries into elementary gates.
+            Default is False (uses unitary gates directly).
+        basis_gates : list of str, optional
+            List of basis gates to decompose into. If None, uses ['rx', 'ry', 'rz', 'cx'].
+            Only used when decompose=True.
         
         Returns
         -------
@@ -244,15 +253,74 @@ class QuantumCircuit:
             # Get the unitary matrix from the Qobj
             matrix = gate.matrix.data.to_array()
             
-            # Convert to Qiskit Operator and add as unitary gate
+            # Convert to Qiskit Operator
             operator = Operator(matrix)
             
             # Apply the unitary to the specified qubits
             # Qiskit uses little-endian convention, so we need to reverse qubit order
             qubits_qiskit = list(reversed(gate.qubits))
-            qc.unitary(operator, qubits_qiskit, label=gate.name)
+            
+            if decompose:
+                # Decompose the unitary into elementary gates
+                gate_circuit = self._decompose_unitary_to_gates(operator, len(gate.qubits), gate.name)
+                
+                # Append the decomposed circuit to the main circuit
+                # Map qubits from the gate circuit to the actual qubits
+                qc.compose(gate_circuit, qubits=qubits_qiskit, inplace=True)
+            else:
+                # Add as a single unitary gate (no decomposition)
+                qc.unitary(operator, qubits_qiskit, label=gate.name)
+        
+        # If decomposition is requested, transpile to basis gates
+        if decompose:
+            from qiskit import transpile
+            if basis_gates is None:
+                basis_gates = ['rx', 'ry', 'rz', 'cx']
+            qc = transpile(qc, basis_gates=basis_gates, optimization_level=0)
         
         return qc
+    
+    def _decompose_unitary_to_gates(self, operator: 'Operator', num_qubits: int, label: str = "") -> 'QiskitQuantumCircuit':
+        """
+        Decompose a unitary operator into elementary quantum gates.
+        
+        This method uses Qiskit's synthesis tools to decompose arbitrary unitaries
+        into elementary gates (RX, RY, RZ, CX).
+        
+        Parameters
+        ----------
+        operator : qiskit.quantum_info.Operator
+            The unitary operator to decompose
+        num_qubits : int
+            Number of qubits the operator acts on
+        label : str, optional
+            Label for debugging purposes
+            
+        Returns
+        -------
+        circuit : qiskit.QuantumCircuit
+            Circuit implementing the unitary with elementary gates
+        """
+        from qiskit.synthesis import TwoQubitBasisDecomposer
+        from qiskit.circuit.library import CXGate
+        
+        if num_qubits == 1:
+            # Single-qubit gate - can be directly added
+            qc = QiskitQuantumCircuit(1)
+            qc.unitary(operator, [0], label=label)
+            return qc
+        elif num_qubits == 2:
+            # Two-qubit gate - use KAK decomposition
+            decomposer = TwoQubitBasisDecomposer(CXGate())
+            circuit = decomposer(operator)
+            return circuit
+        else:
+            # Multi-qubit gate - use unitary directly
+            # (more sophisticated decomposition could be implemented here)
+            qc = QiskitQuantumCircuit(num_qubits)
+            qubits = list(range(num_qubits))
+            qc.unitary(operator, qubits, label=label)
+            return qc
     
     def visualize(self, fig=None, ax=None, title: Optional[str] = None):
         """
