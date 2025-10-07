@@ -490,7 +490,18 @@ class StatevectorSimulator:
             # This ensures we use actual quantum gates (RX, RY, RZ, CX) rather than
             # a single unitary instruction
             U_matrix = U.data.to_array()
-            operator = Operator(U_matrix)
+            
+            # CRITICAL FIX: Handle qubit ordering convention difference
+            # QuTiP uses big-endian: qt.tensor(q0, q1) → |q0,q1⟩ with indices [0,1,2,3] = [|00⟩,|01⟩,|10⟩,|11⟩]
+            # Qiskit uses little-endian: qubits[0] is LSB → |q1,q0⟩ with indices [0,1,2,3] = [|00⟩,|10⟩,|01⟩,|11⟩]
+            # 
+            # To correctly convert, we need to reorder matrix elements:
+            # Index mapping: [0,1,2,3] → [0,2,1,3]
+            # This corresponds to: |00⟩→|00⟩, |01⟩→|10⟩, |10⟩→|01⟩, |11⟩→|11⟩
+            perm = np.array([0, 2, 1, 3])
+            U_matrix_qiskit = U_matrix[np.ix_(perm, perm)]
+            
+            operator = Operator(U_matrix_qiskit)
             
             # Decompose the unitary into elementary gates using KAK decomposition
             from qiskit.synthesis import TwoQubitBasisDecomposer
@@ -505,8 +516,8 @@ class StatevectorSimulator:
                                  optimization_level=0)
             
             # Add the decomposed gates to the main circuit
-            # Qiskit uses little-endian convention, so reverse qubit order
-            qc.compose(transpiled, qubits=[1, 0], inplace=True)
+            # Now use natural qubit order [0, 1] since we already handled the convention difference
+            qc.compose(transpiled, qubits=[0, 1], inplace=True)
             
             # Execute the circuit and get the resulting statevector
             sv = Statevector.from_instruction(qc)
