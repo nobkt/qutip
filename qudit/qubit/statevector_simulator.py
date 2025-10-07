@@ -263,8 +263,10 @@ class StatevectorSimulator:
         result_qubit = self.simulate(hamiltonian, initial_state, times, observables)
         
         # Run exact simulation using QuTiP
+        # Note: We need to explicitly store states to compute populations
         result_exact = qt.sesolve(hamiltonian, initial_state, times, 
-                                   e_ops=observables)
+                                   e_ops=observables,
+                                   options={'store_states': True})
         
         # Compute populations for exact solution
         populations_exact = np.zeros((len(times), 3))
