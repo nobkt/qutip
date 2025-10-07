@@ -486,11 +486,27 @@ class StatevectorSimulator:
             # Initialize with current state
             qc.initialize(current_statevector, [0, 1])
             
-            # Add the time evolution unitary
+            # Add the time evolution unitary - decompose into elementary gates
+            # This ensures we use actual quantum gates (RX, RY, RZ, CX) rather than
+            # a single unitary instruction
             U_matrix = U.data.to_array()
             operator = Operator(U_matrix)
+            
+            # Decompose the unitary into elementary gates using KAK decomposition
+            from qiskit.synthesis import TwoQubitBasisDecomposer
+            from qiskit.circuit.library import CXGate
+            from qiskit import transpile
+            
+            decomposer = TwoQubitBasisDecomposer(CXGate())
+            decomposed_circuit = decomposer(operator)
+            
+            # Transpile to basis gates
+            transpiled = transpile(decomposed_circuit, basis_gates=['rx', 'ry', 'rz', 'cx'], 
+                                 optimization_level=0)
+            
+            # Add the decomposed gates to the main circuit
             # Qiskit uses little-endian convention, so reverse qubit order
-            qc.unitary(operator, [1, 0], label=f'U(dt={dt:.4f})')
+            qc.compose(transpiled, qubits=[1, 0], inplace=True)
             
             # Execute the circuit and get the resulting statevector
             sv = Statevector.from_instruction(qc)
