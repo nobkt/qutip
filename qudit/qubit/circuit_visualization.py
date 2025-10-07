@@ -9,6 +9,14 @@ import numpy as np
 from typing import List, Tuple, Optional, Dict
 import qutip as qt
 
+# Import qiskit if available
+try:
+    from qiskit import QuantumCircuit as QiskitQuantumCircuit
+    from qiskit.quantum_info import Operator
+    QISKIT_AVAILABLE = True
+except ImportError:
+    QISKIT_AVAILABLE = False
+
 
 class CircuitGate:
     """
@@ -201,6 +209,50 @@ class QuantumCircuit:
             lines.append(f"Step {i+1}: {gate}")
         
         return "\n".join(lines)
+    
+    def to_qiskit(self):
+        """
+        Convert the quantum circuit to Qiskit format.
+        
+        This method converts the custom circuit representation to a Qiskit
+        QuantumCircuit object. Each gate with a matrix representation is
+        converted to a Qiskit Unitary gate.
+        
+        Returns
+        -------
+        qiskit_circuit : qiskit.QuantumCircuit
+            The equivalent Qiskit quantum circuit
+            
+        Raises
+        ------
+        ImportError
+            If Qiskit is not installed
+        ValueError
+            If a gate doesn't have a matrix representation
+        """
+        if not QISKIT_AVAILABLE:
+            raise ImportError("Qiskit is not installed. Please install it with: pip install qiskit")
+        
+        # Create a Qiskit circuit with the same number of qubits
+        qc = QiskitQuantumCircuit(self.num_qubits)
+        
+        # Convert each gate
+        for gate in self.gates:
+            if gate.matrix is None:
+                raise ValueError(f"Gate {gate.name} does not have a matrix representation")
+            
+            # Get the unitary matrix from the Qobj
+            matrix = gate.matrix.data.to_array()
+            
+            # Convert to Qiskit Operator and add as unitary gate
+            operator = Operator(matrix)
+            
+            # Apply the unitary to the specified qubits
+            # Qiskit uses little-endian convention, so we need to reverse qubit order
+            qubits_qiskit = list(reversed(gate.qubits))
+            qc.unitary(operator, qubits_qiskit, label=gate.name)
+        
+        return qc
     
     def visualize(self, fig=None, ax=None, title: Optional[str] = None):
         """
