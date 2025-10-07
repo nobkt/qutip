@@ -463,7 +463,10 @@ class StatevectorSimulator:
         populations = np.zeros((n_times, 3))
         
         # Store initial state
-        current_statevector = psi0_array
+        # Permute state vector for Qiskit's little-endian convention
+        # QuTiP: [|00⟩, |01⟩, |10⟩, |11⟩], Qiskit: [|00⟩, |10⟩, |01⟩, |11⟩]
+        perm = np.array([0, 2, 1, 3])
+        current_statevector = psi0_array[perm]
         current_state_qubit = psi0_qubit
         states_qubit.append(current_state_qubit)
         states_spin1.append(initial_state)
@@ -483,7 +486,7 @@ class StatevectorSimulator:
             # Convert to Qiskit circuit
             qc = QiskitQuantumCircuit(2)
             
-            # Initialize with current state
+            # Initialize with current state (already permuted for Qiskit)
             qc.initialize(current_statevector, [0, 1])
             
             # Add the time evolution unitary - decompose into elementary gates
@@ -523,8 +526,13 @@ class StatevectorSimulator:
             sv = Statevector.from_instruction(qc)
             current_statevector = sv.data
             
-            # Convert back to QuTiP Qobj
-            current_state_qubit = qt.Qobj(current_statevector.reshape(4, 1))
+            # Convert back to QuTiP convention by applying inverse permutation
+            # Inverse of [0, 2, 1, 3] is [0, 2, 1, 3] (it's self-inverse)
+            inv_perm = np.array([0, 2, 1, 3])
+            current_statevector_qutip = current_statevector[inv_perm]
+            
+            # Convert to QuTiP Qobj
+            current_state_qubit = qt.Qobj(current_statevector_qutip.reshape(4, 1))
             
             # Normalize
             current_state_qubit = current_state_qubit / current_state_qubit.norm()
@@ -532,9 +540,12 @@ class StatevectorSimulator:
             # Decode back to spin-1
             current_state_spin1 = self.encoder.decode_state(current_state_qubit)
             
-            # Store states
+            # Store states (QuTiP convention)
             states_qubit.append(current_state_qubit)
             states_spin1.append(current_state_spin1)
+            
+            # Update current_statevector for next iteration (keep it in Qiskit convention)
+            current_statevector = sv.data
             
             # Compute expectation values
             for j, obs in enumerate(observables):
