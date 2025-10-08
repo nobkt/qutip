@@ -685,7 +685,8 @@ class StatevectorSimulator:
                            times: np.ndarray,
                            observables: Optional[List[qt.Qobj]] = None,
                            shots: int = 1024,
-                           noise_model=None) -> Dict:
+                           noise_model=None,
+                           apply_noise_in_evolution: bool = False) -> Dict:
         """
         Simulate spin-1 quantum dynamics using Qiskit's shot-based simulator.
         
@@ -708,6 +709,11 @@ class StatevectorSimulator:
             Number of measurement shots to take. Default is 1024.
         noise_model : qiskit.providers.aer.noise.NoiseModel, optional
             Qiskit noise model to apply. If None, runs without noise.
+        apply_noise_in_evolution : bool, optional
+            If True, noise is applied during time evolution by building a cumulative
+            circuit with decomposed gates. If False (default), evolution is ideal
+            unitary and noise is only applied during measurement. Default maintains
+            backward compatibility.
             
         Returns
         -------
@@ -775,58 +781,85 @@ class StatevectorSimulator:
         std_populations[0, :] = initial_measurements['std_populations']
         
         # Time evolution using Qiskit
-        for i in range(1, n_times):
-            dt = times[i] - times[i-1]
-            
-            # Build the time evolution operator using Trotter decomposition
-            U = self.trotter.time_evolution_operator(hamiltonian_terms_qubit, dt)
-            
-            # Convert to Qiskit circuit
-            qc = QiskitQuantumCircuit(2)
-            qc.initialize(current_statevector, [0, 1])
-            
-            # Add the time evolution unitary
-            U_matrix = U.data.to_array()
-            U_matrix_qiskit = U_matrix[np.ix_(perm, perm)]
-            operator = Operator(U_matrix_qiskit)
-            
-            # Decompose the unitary into elementary gates
+        if not apply_noise_in_evolution:
+            # Traditional mode: ideal evolution, noise only at measurement
+            for i in range(1, n_times):
+                dt = times[i] - times[i-1]
+                
+                # Build the time evolution operator using Trotter decomposition
+                U = self.trotter.time_evolution_operator(hamiltonian_terms_qubit, dt)
+                
+                # Convert to Qiskit circuit
+                qc = QiskitQuantumCircuit(2)
+                qc.initialize(current_statevector, [0, 1])
+                
+                # Add the time evolution unitary
+                U_matrix = U.data.to_array()
+                U_matrix_qiskit = U_matrix[np.ix_(perm, perm)]
+                operator = Operator(U_matrix_qiskit)
+                
+                # Decompose the unitary into elementary gates
+                from qiskit.synthesis import TwoQubitBasisDecomposer
+                from qiskit.circuit.library import CXGate
+                from qiskit import transpile
+                
+                decomposer = TwoQubitBasisDecomposer(CXGate())
+                decomposed_circuit = decomposer(operator)
+                transpiled = transpile(decomposed_circuit, basis_gates=['rx', 'ry', 'rz', 'cx'], 
+                                     optimization_level=0)
+                qc.compose(transpiled, qubits=[0, 1], inplace=True)
+                
+                # Execute and get statevector for next iteration
+                # Evolution is always unitary; noise is applied during measurement
+                from qiskit.quantum_info import Statevector
+                sv = Statevector.from_instruction(qc)
+                current_statevector = sv.data
+                
+                # Measure observables at this time point (noise_model is applied in simulator.run)
+                measurements = self._measure_observables_with_shots(
+                    current_statevector, observables, shots, simulator
+                )
+                expectations[i, :] = measurements['expect']
+                populations[i, :] = measurements['populations']
+                std_expectations[i, :] = measurements['std_expect']
+                std_populations[i, :] = measurements['std_populations']
+        else:
+            # Noise-in-evolution mode: cumulative circuit building with noise applied throughout
+            # Build cumulative evolution circuit
             from qiskit.synthesis import TwoQubitBasisDecomposer
             from qiskit.circuit.library import CXGate
             from qiskit import transpile
             
             decomposer = TwoQubitBasisDecomposer(CXGate())
-            decomposed_circuit = decomposer(operator)
-            transpiled = transpile(decomposed_circuit, basis_gates=['rx', 'ry', 'rz', 'cx'], 
-                                 optimization_level=0)
-            qc.compose(transpiled, qubits=[0, 1], inplace=True)
             
-            # Execute and get statevector for next iteration
-            if noise_model is None:
-                from qiskit.quantum_info import Statevector
-                sv = Statevector.from_instruction(qc)
-                current_statevector = sv.data
-            else:
-                # With noise model: Note that noise transforms the state into a 
-                # mixed state (density matrix), which cannot be represented as a 
-                # pure statevector. For shot-based simulation, we use the rigorous
-                # approach of applying noise only at measurement time, keeping the
-                # evolution itself noiseless for state tracking. This is the 
-                # standard approach in quantum computing simulators as it correctly
-                # models the physical process: unitary evolution + noisy measurement.
-                # The noise model will be applied during the measurement step.
-                from qiskit.quantum_info import Statevector
-                sv = Statevector.from_instruction(qc)
-                current_statevector = sv.data
+            # Start with initial state circuit
+            qc_evo = QiskitQuantumCircuit(2)
+            qc_evo.initialize(current_statevector, [0, 1])
             
-            # Measure observables at this time point
-            measurements = self._measure_observables_with_shots(
-                current_statevector, observables, shots, simulator
-            )
-            expectations[i, :] = measurements['expect']
-            populations[i, :] = measurements['populations']
-            std_expectations[i, :] = measurements['std_expect']
-            std_populations[i, :] = measurements['std_populations']
+            for i in range(1, n_times):
+                dt = times[i] - times[i-1]
+                
+                # Build the time evolution operator for this step
+                U = self.trotter.time_evolution_operator(hamiltonian_terms_qubit, dt)
+                U_matrix = U.data.to_array()
+                U_matrix_qiskit = U_matrix[np.ix_(perm, perm)]
+                operator = Operator(U_matrix_qiskit)
+                
+                # Decompose and add to cumulative circuit
+                decomposed_circuit = decomposer(operator)
+                transpiled = transpile(decomposed_circuit, basis_gates=['rx', 'ry', 'rz', 'cx'], 
+                                     optimization_level=0)
+                qc_evo.compose(transpiled, qubits=[0, 1], inplace=True)
+                
+                # Measure observables at this time point
+                # Copy circuit for measurement (noise applied during execution)
+                measurements = self._measure_observables_with_shots_from_circuit(
+                    qc_evo, observables, shots, simulator
+                )
+                expectations[i, :] = measurements['expect']
+                populations[i, :] = measurements['populations']
+                std_expectations[i, :] = measurements['std_expect']
+                std_populations[i, :] = measurements['std_populations']
         
         result = {
             'times': times,
@@ -839,6 +872,124 @@ class StatevectorSimulator:
         }
         
         return result
+    
+    def _measure_observables_with_shots_from_circuit(self, qc_evo, observables, shots, simulator):
+        """
+        Measure observables using shot-based simulation from an existing circuit.
+        
+        This method is used when apply_noise_in_evolution=True, where the evolution
+        circuit accumulates gates over time and noise is applied during execution.
+        
+        Parameters
+        ----------
+        qc_evo : QuantumCircuit
+            Existing evolution circuit (without measurement)
+        observables : list of Qobj
+            List of 3x3 spin-1 operators to measure
+        shots : int
+            Number of measurement shots
+        simulator : AerSimulator
+            Qiskit Aer simulator instance
+            
+        Returns
+        -------
+        measurements : dict
+            Dictionary with 'expect', 'populations', 'std_expect', 'std_populations'
+        """
+        from qiskit import QuantumCircuit as QiskitQuantumCircuit
+        from qiskit.quantum_info import Operator
+        
+        n_obs = len(observables)
+        expect_vals = np.zeros(n_obs)
+        std_expect_vals = np.zeros(n_obs)
+        
+        # Measure each observable
+        for j, obs in enumerate(observables):
+            # Encode the observable to qubit representation
+            obs_qubit = self.encoder.encode_operator(obs)
+            obs_matrix = obs_qubit.data.to_array()
+            
+            # Convert to Qiskit convention
+            perm = np.array([0, 2, 1, 3])
+            obs_matrix_qiskit = obs_matrix[np.ix_(perm, perm)]
+            
+            # Diagonalize the observable to find measurement basis
+            eigenvalues, eigenvectors = np.linalg.eigh(obs_matrix_qiskit)
+            
+            # Create measurement circuit by copying evolution circuit
+            qc = qc_evo.copy()
+            
+            # Apply basis change to measure in eigenbasis (decomposed to basis gates)
+            U_basis = Operator(eigenvectors.conj().T)
+            from qiskit.synthesis import TwoQubitBasisDecomposer
+            from qiskit.circuit.library import CXGate
+            from qiskit import transpile
+            
+            decomposer = TwoQubitBasisDecomposer(CXGate())
+            basis_rot = decomposer(U_basis)
+            basis_rot = transpile(basis_rot, basis_gates=['rx', 'ry', 'rz', 'cx'], 
+                                optimization_level=0)
+            qc.compose(basis_rot, qubits=[0, 1], inplace=True)
+            
+            # Measure all qubits
+            qc.measure_all()
+            
+            # Execute
+            result = simulator.run(qc, shots=shots).result()
+            counts = result.get_counts()
+            
+            # Compute expectation value from measurement outcomes
+            total = 0
+            measurements = []
+            for bitstring, count in counts.items():
+                # Convert bitstring to basis state index
+                idx = int(bitstring, 2)
+                eigenvalue = eigenvalues[idx]
+                total += eigenvalue * count
+                measurements.extend([eigenvalue] * count)
+            
+            expect_val = total / shots
+            expect_vals[j] = expect_val
+            
+            # Compute standard deviation
+            measurements_array = np.array(measurements)
+            std_expect_vals[j] = np.std(measurements_array) / np.sqrt(shots)
+        
+        # Measure populations in computational basis
+        qc_pop = qc_evo.copy()
+        qc_pop.measure_all()
+        
+        result_pop = simulator.run(qc_pop, shots=shots).result()
+        counts_pop = result_pop.get_counts()
+        
+        # Extract populations for spin-1 states
+        # Qiskit uses little-endian: '00' is qubit[1]=0, qubit[0]=0
+        # Our encoding: |m=+1⟩ → |00⟩, |m=0⟩ → |01⟩, |m=-1⟩ → |10⟩
+        # In Qiskit convention: |m=+1⟩ → '00', |m=0⟩ → '10', |m=-1⟩ → '01'
+        populations = np.zeros(3)
+        pop_counts = [0, 0, 0]  # For computing standard deviations
+        
+        for bitstring, count in counts_pop.items():
+            if bitstring == '00':  # |m=+1⟩
+                populations[0] += count / shots
+                pop_counts[0] = count
+            elif bitstring == '10':  # |m=0⟩
+                populations[1] += count / shots
+                pop_counts[1] = count
+            elif bitstring == '01':  # |m=-1⟩
+                populations[2] += count / shots
+                pop_counts[2] = count
+            # Ignore '11' as it's outside our encoding
+        
+        # Standard deviations for populations (binomial distribution)
+        std_populations = np.sqrt(populations * (1 - populations) / shots)
+        
+        return {
+            'expect': expect_vals,
+            'populations': populations,
+            'std_expect': std_expect_vals,
+            'std_populations': std_populations
+        }
     
     def _measure_observables_with_shots(self, statevector, observables, shots, simulator):
         """
@@ -884,9 +1035,18 @@ class StatevectorSimulator:
             qc = QiskitQuantumCircuit(2)
             qc.initialize(statevector, [0, 1])
             
-            # Apply basis change to measure in eigenbasis
+            # Apply basis change to measure in eigenbasis (decomposed to basis gates)
+            # This ensures noise model can be applied to the basis rotation gates
             U_basis = Operator(eigenvectors.conj().T)
-            qc.unitary(U_basis, [0, 1])
+            from qiskit.synthesis import TwoQubitBasisDecomposer
+            from qiskit.circuit.library import CXGate
+            from qiskit import transpile
+            
+            decomposer = TwoQubitBasisDecomposer(CXGate())
+            basis_rot = decomposer(U_basis)
+            basis_rot = transpile(basis_rot, basis_gates=['rx', 'ry', 'rz', 'cx'], 
+                                optimization_level=0)
+            qc.compose(basis_rot, qubits=[0, 1], inplace=True)
             
             # Measure all qubits
             qc.measure_all()
