@@ -378,37 +378,48 @@ class StatevectorSimulator:
         circuit : QuditCircuit
             Circuit to add gates to
         hamiltonian_terms : list
-            List of (label, coefficient, matrix) tuples
+            List of Hamiltonian term matrices (as returned by decompose_hamiltonian)
         dt : float
             Time step
         """
         from .circuit_visualization import QuditGate
         
+        # hamiltonian_terms is a list of matrices (not tuples)
+        # We need to identify what each term represents
+        
         # The actual gates depend on the Trotter order
         if self.trotter_order == 1:
             # First order: exp(-iH1*dt) exp(-iH2*dt) ...
-            for label, coeff, matrix in hamiltonian_terms:
-                U = scipy.linalg.expm(-1j * coeff * matrix * dt)
+            for idx, term_matrix in enumerate(hamiltonian_terms):
+                if term_matrix.ndim < 2:
+                    continue  # Skip if not a proper matrix
+                U = scipy.linalg.expm(-1j * term_matrix * dt)
+                label = self._identify_operator(term_matrix)
                 desc = f"Time evolution under {label} for time {dt:.4f}"
-                circuit.add_evolution_gate(label, coeff, dt, U, desc)
+                circuit.add_evolution_gate(label, 1.0, dt, U, desc)
         
         elif self.trotter_order == 2:
             # Second order: exp(-iH1*dt/2) ... exp(-iHn*dt/2) exp(-iHn*dt/2) ... exp(-iH1*dt/2)
             # Forward half-steps
-            for label, coeff, matrix in hamiltonian_terms:
-                U = scipy.linalg.expm(-1j * coeff * matrix * dt / 2)
+            for idx, term_matrix in enumerate(hamiltonian_terms):
+                if term_matrix.ndim < 2:
+                    continue
+                U = scipy.linalg.expm(-1j * term_matrix * dt / 2)
+                label = self._identify_operator(term_matrix)
                 desc = f"Forward half-step under {label}"
-                circuit.add_evolution_gate(label, coeff, dt/2, U, desc)
+                circuit.add_evolution_gate(label, 1.0, dt/2, U, desc)
             # Backward half-steps
-            for label, coeff, matrix in reversed(hamiltonian_terms):
-                U = scipy.linalg.expm(-1j * coeff * matrix * dt / 2)
+            for idx, term_matrix in enumerate(reversed(hamiltonian_terms)):
+                if term_matrix.ndim < 2:
+                    continue
+                U = scipy.linalg.expm(-1j * term_matrix * dt / 2)
+                label = self._identify_operator(term_matrix)
                 desc = f"Backward half-step under {label}"
-                circuit.add_evolution_gate(label, coeff, dt/2, U, desc)
+                circuit.add_evolution_gate(label, 1.0, dt/2, U, desc)
         
         elif self.trotter_order == 4:
             # Fourth order uses Suzuki's fractal composition
             # We represent this as the composed operators
-            # For simplicity, just mark it as a fourth-order step
             # (The actual decomposition is complex and handled by trotter_decomp)
             gate = QuditGate(
                 name="U_Trotter4",
@@ -417,6 +428,53 @@ class StatevectorSimulator:
                 description=f"Fourth-order Suzuki-Trotter step for dt={dt:.4f}"
             )
             circuit.add_gate(gate)
+    
+    def _identify_operator(self, matrix: np.ndarray) -> str:
+        """
+        Identify which operator a matrix represents (Jx, Jy, Jz, etc).
+        
+        Parameters
+        ----------
+        matrix : np.ndarray
+            3x3 operator matrix
+        
+        Returns
+        -------
+        label : str
+            String label for the operator
+        """
+        if matrix.shape != (3, 3):
+            return "Unknown"
+        
+        # Get standard operators
+        ops = get_spin1_operators()
+        Jx, Jy, Jz = ops['Jx'], ops['Jy'], ops['Jz']
+        
+        # Normalize the input matrix to compare
+        norm = np.linalg.norm(matrix, 'fro')
+        if norm < 1e-10:
+            return "Zero"
+        
+        matrix_normalized = matrix / norm
+        
+        # Check against known operators
+        if np.allclose(matrix_normalized, Jx / np.linalg.norm(Jx, 'fro'), atol=1e-6):
+            return "Jx"
+        elif np.allclose(matrix_normalized, Jy / np.linalg.norm(Jy, 'fro'), atol=1e-6):
+            return "Jy"
+        elif np.allclose(matrix_normalized, Jz / np.linalg.norm(Jz, 'fro'), atol=1e-6):
+            return "Jz"
+        elif np.allclose(matrix_normalized, (Jx @ Jx) / np.linalg.norm(Jx @ Jx, 'fro'), atol=1e-6):
+            return "Jx2"
+        elif np.allclose(matrix_normalized, (Jy @ Jy) / np.linalg.norm(Jy @ Jy, 'fro'), atol=1e-6):
+            return "Jy2"
+        elif np.allclose(matrix_normalized, (Jz @ Jz) / np.linalg.norm(Jz @ Jz, 'fro'), atol=1e-6):
+            return "Jz2"
+        elif np.allclose(matrix, np.diag(np.diag(matrix)), atol=1e-6):
+            return "Diagonal"
+        else:
+            return "General"
+
 
 
 def get_spin1_operators() -> Dict[str, np.ndarray]:

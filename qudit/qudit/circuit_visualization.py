@@ -451,7 +451,8 @@ def visualize_state_evolution(states: List[np.ndarray],
     
     # Plot 1: Population dynamics
     ax = axes[0]
-    populations = np.array([np.abs(state)**2 for state in states])
+    # Flatten states to 1D arrays for consistent handling
+    populations = np.array([np.abs(state.flatten())**2 for state in states])
     ax.plot(times, populations[:, 0], 'r-', linewidth=2, label='|m=+1⟩')
     ax.plot(times, populations[:, 1], 'g-', linewidth=2, label='|m=0⟩')
     ax.plot(times, populations[:, 2], 'b-', linewidth=2, label='|m=-1⟩')
@@ -477,7 +478,7 @@ def visualize_state_evolution(states: List[np.ndarray],
     for i, (op_name, op_matrix) in enumerate(operators.items()):
         ax = axes[2 + i]
         expectations = np.array([
-            np.real(np.conj(state) @ op_matrix @ state)
+            np.real(np.conj(state.flatten()).T @ op_matrix @ state.flatten())
             for state in states
         ])
         ax.plot(times, expectations, linewidth=2)
@@ -524,9 +525,9 @@ def visualize_bloch_sphere_trajectory(states: List[np.ndarray],
     Jx, Jy, Jz = ops['Jx'], ops['Jy'], ops['Jz']
     
     # Compute expectation values
-    x_vals = np.array([np.real(np.conj(state) @ Jx @ state) for state in states])
-    y_vals = np.array([np.real(np.conj(state) @ Jy @ state) for state in states])
-    z_vals = np.array([np.real(np.conj(state) @ Jz @ state) for state in states])
+    x_vals = np.array([np.real(np.conj(state.flatten()).T @ Jx @ state.flatten()) for state in states])
+    y_vals = np.array([np.real(np.conj(state.flatten()).T @ Jy @ state.flatten()) for state in states])
+    z_vals = np.array([np.real(np.conj(state.flatten()).T @ Jz @ state.flatten()) for state in states])
     
     if projection == '3d':
         fig = plt.figure(figsize=figsize)
