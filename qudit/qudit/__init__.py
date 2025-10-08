@@ -48,13 +48,23 @@ from .statevector_simulator import (
     get_spin1_states,
     spin_coherent_state
 )
+from .circuit_visualization import (
+    QuditCircuit,
+    QuditGate,
+    visualize_state_evolution,
+    visualize_bloch_sphere_trajectory
+)
 
 __all__ = [
     'SuzukiTrotterDecomposition',
     'StatevectorSimulator',
     'get_spin1_operators',
     'get_spin1_states',
-    'spin_coherent_state'
+    'spin_coherent_state',
+    'QuditCircuit',
+    'QuditGate',
+    'visualize_state_evolution',
+    'visualize_bloch_sphere_trajectory'
 ]
 
 __version__ = '1.0.0'
