@@ -63,6 +63,15 @@ except ImportError:
     _MQT_AVAILABLE = False
     MQTStatevectorSimulator = None
 
+# Try to import MQT circuit converter (optional dependency)
+try:
+    from .mqt_circuit_converter import MQTCircuitConverter, convert_hamiltonian_to_mqt_circuit
+    _MQT_CIRCUIT_AVAILABLE = True
+except ImportError:
+    _MQT_CIRCUIT_AVAILABLE = False
+    MQTCircuitConverter = None
+    convert_hamiltonian_to_mqt_circuit = None
+
 __all__ = [
     'SuzukiTrotterDecomposition',
     'StatevectorSimulator',
@@ -78,5 +87,9 @@ __all__ = [
 # Add MQT simulator if available
 if _MQT_AVAILABLE:
     __all__.append('MQTStatevectorSimulator')
+
+# Add MQT circuit converter if available
+if _MQT_CIRCUIT_AVAILABLE:
+    __all__.extend(['MQTCircuitConverter', 'convert_hamiltonian_to_mqt_circuit'])
 
 __version__ = '1.0.0'
