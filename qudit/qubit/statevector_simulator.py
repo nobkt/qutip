@@ -678,3 +678,279 @@ class StatevectorSimulator:
         comparison['errors']['trotter_vs_exact']['mean_pop_error'] = np.mean(trotter_errors['populations'])
         
         return comparison
+    
+    def simulate_with_shots(self,
+                           hamiltonian: qt.Qobj,
+                           initial_state: qt.Qobj,
+                           times: np.ndarray,
+                           observables: Optional[List[qt.Qobj]] = None,
+                           shots: int = 1024,
+                           noise_model=None) -> Dict:
+        """
+        Simulate spin-1 quantum dynamics using Qiskit's shot-based simulator.
+        
+        This method executes the quantum circuits on Qiskit's shot-based simulator
+        (with or without noise) and computes expectation values and populations 
+        from measurement outcomes at each time point.
+        
+        Parameters
+        ----------
+        hamiltonian : Qobj
+            3x3 spin-1 Hamiltonian operator
+        initial_state : Qobj
+            3x1 initial state vector for spin-1
+        times : ndarray
+            Array of time points at which to evaluate the state
+        observables : list of Qobj, optional
+            List of 3x3 spin-1 operators to measure. If None, measures
+            Jx, Jy, Jz by default.
+        shots : int, optional
+            Number of measurement shots to take. Default is 1024.
+        noise_model : qiskit.providers.aer.noise.NoiseModel, optional
+            Qiskit noise model to apply. If None, runs without noise.
+            
+        Returns
+        -------
+        result : dict
+            Dictionary containing:
+            - 'times': time array
+            - 'expect': array of expectation values (n_times, n_observables)
+            - 'populations': array of populations |⟨m|ψ(t)⟩|² (n_times, 3)
+            - 'std_expect': standard deviations of expectation values
+            - 'std_populations': standard deviations of populations
+            - 'shots': number of shots used
+            - 'noise_model': noise model used (if any)
+            
+        Raises
+        ------
+        ImportError
+            If Qiskit or Qiskit Aer is not installed
+        """
+        try:
+            from qiskit import QuantumCircuit as QiskitQuantumCircuit
+            from qiskit.quantum_info import Operator
+            from qiskit_aer import AerSimulator
+        except ImportError:
+            raise ImportError(
+                "Qiskit and Qiskit Aer are not installed. "
+                "Please install them with: pip install qiskit qiskit-aer"
+            )
+        
+        # Set default observables if not provided
+        if observables is None:
+            observables = [qt.jmat(1, 'x'), qt.jmat(1, 'y'), qt.jmat(1, 'z')]
+        
+        # Encode initial state to qubit representation
+        psi0_qubit = self.encoder.encode_state(initial_state)
+        psi0_array = psi0_qubit.data.to_array().flatten()
+        
+        # Decompose Hamiltonian into terms for Trotter decomposition
+        hamiltonian_terms_qubit = self._decompose_hamiltonian(hamiltonian)
+        
+        # Prepare arrays for results
+        n_times = len(times)
+        n_obs = len(observables)
+        expectations = np.zeros((n_times, n_obs))
+        populations = np.zeros((n_times, 3))
+        std_expectations = np.zeros((n_times, n_obs))
+        std_populations = np.zeros((n_times, 3))
+        
+        # Initialize simulator
+        if noise_model is not None:
+            simulator = AerSimulator(noise_model=noise_model)
+        else:
+            simulator = AerSimulator(method='statevector')
+        
+        # Permutation for Qiskit's little-endian convention
+        perm = np.array([0, 2, 1, 3])
+        current_statevector = psi0_array[perm]
+        
+        # Initial measurements (t=0)
+        initial_measurements = self._measure_observables_with_shots(
+            current_statevector, observables, shots, simulator
+        )
+        expectations[0, :] = initial_measurements['expect']
+        populations[0, :] = initial_measurements['populations']
+        std_expectations[0, :] = initial_measurements['std_expect']
+        std_populations[0, :] = initial_measurements['std_populations']
+        
+        # Time evolution using Qiskit
+        for i in range(1, n_times):
+            dt = times[i] - times[i-1]
+            
+            # Build the time evolution operator using Trotter decomposition
+            U = self.trotter.time_evolution_operator(hamiltonian_terms_qubit, dt)
+            
+            # Convert to Qiskit circuit
+            qc = QiskitQuantumCircuit(2)
+            qc.initialize(current_statevector, [0, 1])
+            
+            # Add the time evolution unitary
+            U_matrix = U.data.to_array()
+            U_matrix_qiskit = U_matrix[np.ix_(perm, perm)]
+            operator = Operator(U_matrix_qiskit)
+            
+            # Decompose the unitary into elementary gates
+            from qiskit.synthesis import TwoQubitBasisDecomposer
+            from qiskit.circuit.library import CXGate
+            from qiskit import transpile
+            
+            decomposer = TwoQubitBasisDecomposer(CXGate())
+            decomposed_circuit = decomposer(operator)
+            transpiled = transpile(decomposed_circuit, basis_gates=['rx', 'ry', 'rz', 'cx'], 
+                                 optimization_level=0)
+            qc.compose(transpiled, qubits=[0, 1], inplace=True)
+            
+            # Save statevector for next iteration (only works without noise)
+            if noise_model is None:
+                qc.save_statevector()
+            
+            # Execute and get statevector for next iteration
+            if noise_model is None:
+                from qiskit.quantum_info import Statevector
+                sv = Statevector.from_instruction(qc)
+                current_statevector = sv.data
+            else:
+                # With noise, we need to run the circuit to get the evolved state
+                # Since noise makes it a mixed state, we approximate by running
+                # many shots to estimate the state
+                # However, for time evolution, we need to use the noiseless evolution
+                # for state preparation, then apply noise only at measurement
+                qc_noisy = qc.copy()
+                result = simulator.run(qc_noisy, shots=1).result()
+                # Get the statevector from a single shot evolution
+                # This is a limitation - with noise, we can't perfectly track the state
+                # For now, use noiseless evolution but noisy measurements
+                from qiskit.quantum_info import Statevector
+                sv = Statevector.from_instruction(qc)
+                current_statevector = sv.data
+            
+            # Measure observables at this time point
+            measurements = self._measure_observables_with_shots(
+                current_statevector, observables, shots, simulator
+            )
+            expectations[i, :] = measurements['expect']
+            populations[i, :] = measurements['populations']
+            std_expectations[i, :] = measurements['std_expect']
+            std_populations[i, :] = measurements['std_populations']
+        
+        result = {
+            'times': times,
+            'expect': expectations,
+            'populations': populations,
+            'std_expect': std_expectations,
+            'std_populations': std_populations,
+            'shots': shots,
+            'noise_model': noise_model
+        }
+        
+        return result
+    
+    def _measure_observables_with_shots(self, statevector, observables, shots, simulator):
+        """
+        Measure observables using shot-based simulation.
+        
+        Parameters
+        ----------
+        statevector : ndarray
+            4-element state vector in Qiskit convention
+        observables : list of Qobj
+            List of 3x3 spin-1 operators to measure
+        shots : int
+            Number of measurement shots
+        simulator : AerSimulator
+            Qiskit Aer simulator instance
+            
+        Returns
+        -------
+        measurements : dict
+            Dictionary with 'expect', 'populations', 'std_expect', 'std_populations'
+        """
+        from qiskit import QuantumCircuit as QiskitQuantumCircuit
+        from qiskit.quantum_info import Operator
+        
+        n_obs = len(observables)
+        expect_vals = np.zeros(n_obs)
+        std_expect_vals = np.zeros(n_obs)
+        
+        # Measure each observable
+        for j, obs in enumerate(observables):
+            # Encode the observable to qubit representation
+            obs_qubit = self.encoder.encode_operator(obs)
+            obs_matrix = obs_qubit.data.to_array()
+            
+            # Convert to Qiskit convention
+            perm = np.array([0, 2, 1, 3])
+            obs_matrix_qiskit = obs_matrix[np.ix_(perm, perm)]
+            
+            # Diagonalize the observable to find measurement basis
+            eigenvalues, eigenvectors = np.linalg.eigh(obs_matrix_qiskit)
+            
+            # Create circuit for measurement
+            qc = QiskitQuantumCircuit(2)
+            qc.initialize(statevector, [0, 1])
+            
+            # Apply basis change to measure in eigenbasis
+            U_basis = Operator(eigenvectors.conj().T)
+            qc.unitary(U_basis, [0, 1])
+            
+            # Measure all qubits
+            qc.measure_all()
+            
+            # Execute
+            result = simulator.run(qc, shots=shots).result()
+            counts = result.get_counts()
+            
+            # Compute expectation value from measurement outcomes
+            total = 0
+            measurements = []
+            for bitstring, count in counts.items():
+                # Convert bitstring to basis state index
+                idx = int(bitstring, 2)
+                eigenvalue = eigenvalues[idx]
+                total += eigenvalue * count
+                measurements.extend([eigenvalue] * count)
+            
+            expect_val = total / shots
+            expect_vals[j] = expect_val
+            
+            # Compute standard deviation
+            measurements_array = np.array(measurements)
+            std_expect_vals[j] = np.std(measurements_array) / np.sqrt(shots)
+        
+        # Measure populations in computational basis
+        qc_pop = QiskitQuantumCircuit(2)
+        qc_pop.initialize(statevector, [0, 1])
+        qc_pop.measure_all()
+        
+        result_pop = simulator.run(qc_pop, shots=shots).result()
+        counts_pop = result_pop.get_counts()
+        
+        # Extract populations for spin-1 states
+        # Qiskit uses little-endian: '00' is qubit[1]=0, qubit[0]=0
+        # Our encoding: |m=+1⟩ → |00⟩, |m=0⟩ → |01⟩, |m=-1⟩ → |10⟩
+        # In Qiskit convention: |m=+1⟩ → '00', |m=0⟩ → '10', |m=-1⟩ → '01'
+        populations = np.zeros(3)
+        pop_counts = [0, 0, 0]  # For computing standard deviations
+        
+        for bitstring, count in counts_pop.items():
+            if bitstring == '00':  # |m=+1⟩
+                populations[0] += count / shots
+                pop_counts[0] = count
+            elif bitstring == '10':  # |m=0⟩
+                populations[1] += count / shots
+                pop_counts[1] = count
+            elif bitstring == '01':  # |m=-1⟩
+                populations[2] += count / shots
+                pop_counts[2] = count
+            # Ignore '11' as it's outside our encoding
+        
+        # Standard deviations for populations (binomial distribution)
+        std_populations = np.sqrt(populations * (1 - populations) / shots)
+        
+        return {
+            'expect': expect_vals,
+            'populations': populations,
+            'std_expect': std_expect_vals,
+            'std_populations': std_populations
+        }
