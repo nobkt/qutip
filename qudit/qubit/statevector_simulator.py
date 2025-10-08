@@ -801,10 +801,6 @@ class StatevectorSimulator:
                                  optimization_level=0)
             qc.compose(transpiled, qubits=[0, 1], inplace=True)
             
-            # Save statevector for next iteration (only works without noise)
-            if noise_model is None:
-                qc.save_statevector()
-            
             # Execute and get statevector for next iteration
             if noise_model is None:
                 from qiskit.quantum_info import Statevector
