@@ -55,6 +55,14 @@ from .circuit_visualization import (
     visualize_bloch_sphere_trajectory
 )
 
+# Try to import MQT simulator (optional dependency)
+try:
+    from .mqt_simulator import MQTStatevectorSimulator
+    _MQT_AVAILABLE = True
+except ImportError:
+    _MQT_AVAILABLE = False
+    MQTStatevectorSimulator = None
+
 __all__ = [
     'SuzukiTrotterDecomposition',
     'StatevectorSimulator',
@@ -66,5 +74,9 @@ __all__ = [
     'visualize_state_evolution',
     'visualize_bloch_sphere_trajectory'
 ]
+
+# Add MQT simulator if available
+if _MQT_AVAILABLE:
+    __all__.append('MQTStatevectorSimulator')
 
 __version__ = '1.0.0'
