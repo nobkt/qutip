@@ -17,6 +17,9 @@ All gates are represented exactly without heuristic approximations.
 import numpy as np
 import scipy.linalg
 from typing import Optional, Dict, List, Tuple, Any
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch, Rectangle
+from matplotlib.lines import Line2D
 
 try:
     from mqt.qudits.quantum_circuit import QuantumCircuit, QuantumRegister
@@ -388,6 +391,197 @@ class MQTCircuitConverter:
                 print(f"  [{real_str}]")
             print()
         print("=" * 80)
+    
+    def visualize_circuit(self,
+                         circuit_info: Dict[str, Any],
+                         figsize: Tuple[int, int] = (16, 6),
+                         max_gates_per_row: int = 20,
+                         show_gate_labels: bool = True,
+                         show_angles: bool = True) -> Tuple[plt.Figure, Any]:
+        """
+        Create a visual representation of the MQT quantum circuit.
+        
+        This function visualizes the gate sequence of an MQT quantum circuit,
+        showing the arrangement of gates and their types. Each gate is displayed
+        as a colored box on the qutrit (qudit) line, with labels indicating
+        the gate type and parameters.
+        
+        Parameters
+        ----------
+        circuit_info : dict
+            Circuit information dictionary returned by hamiltonian_to_circuit
+        figsize : tuple, optional
+            Figure size (width, height) in inches (default: (16, 6))
+        max_gates_per_row : int, optional
+            Maximum number of gates to display per row before wrapping (default: 20)
+        show_gate_labels : bool, optional
+            Whether to show gate type labels (Rx, Ry, Rz) (default: True)
+        show_angles : bool, optional
+            Whether to show rotation angles below gates (default: True)
+        
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The figure object containing the visualization
+        axes : matplotlib.axes.Axes or list of Axes
+            The axes object(s) used for plotting
+        
+        Examples
+        --------
+        >>> converter = MQTCircuitConverter()
+        >>> circuit, info = converter.hamiltonian_to_circuit(H, time=1.0, trotter_steps=5)
+        >>> fig, axes = converter.visualize_circuit(info)
+        >>> plt.show()
+        """
+        gates = circuit_info['gates']
+        num_gates = len(gates)
+        
+        if num_gates == 0:
+            fig, ax = plt.subplots(figsize=(8, 2))
+            ax.text(0.5, 0.5, 'Empty circuit', ha='center', va='center',
+                   fontsize=14, transform=ax.transAxes)
+            ax.axis('off')
+            return fig, ax
+        
+        # Calculate number of rows needed
+        num_rows = (num_gates + max_gates_per_row - 1) // max_gates_per_row
+        
+        # Create subplots
+        fig, axes = plt.subplots(num_rows, 1, 
+                                figsize=(figsize[0], figsize[1] * num_rows))
+        if num_rows == 1:
+            axes = [axes]
+        
+        # Plot each row
+        for row_idx in range(num_rows):
+            ax = axes[row_idx]
+            start_idx = row_idx * max_gates_per_row
+            end_idx = min(start_idx + max_gates_per_row, num_gates)
+            row_gates = gates[start_idx:end_idx]
+            
+            self._draw_circuit_row(
+                ax, row_gates, start_idx,
+                show_gate_labels, show_angles
+            )
+            
+            # Add row title
+            if num_rows > 1:
+                title = (f'MQT Circuit - Section {row_idx + 1}/{num_rows} '
+                        f'(Gates {start_idx + 1}-{end_idx})')
+            else:
+                title = f'MQT Qutrit Circuit ({num_gates} gates)'
+            ax.set_title(title, fontsize=12, fontweight='bold', pad=15)
+        
+        # Add overall circuit information
+        fig.suptitle(
+            f"MQT Quantum Circuit: Trotter Order {circuit_info['trotter_order']}, "
+            f"{circuit_info['num_steps']} steps, "
+            f"Time = {circuit_info['total_time']:.4f}",
+            fontsize=14, fontweight='bold', y=0.98
+        )
+        
+        plt.tight_layout()
+        return fig, axes if num_rows > 1 else axes[0]
+    
+    def _draw_circuit_row(self,
+                         ax: plt.Axes,
+                         gates: List[Dict[str, Any]],
+                         start_idx: int,
+                         show_gate_labels: bool,
+                         show_angles: bool):
+        """
+        Draw a single row of the circuit diagram.
+        
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            Axes to draw on
+        gates : list of dict
+            List of gate information dictionaries
+        start_idx : int
+            Starting index for gate numbering
+        show_gate_labels : bool
+            Whether to show gate type labels
+        show_angles : bool
+            Whether to show rotation angles
+        """
+        num_gates = len(gates)
+        
+        # Set up axes
+        ax.set_xlim(-0.5, num_gates + 0.5)
+        ax.set_ylim(-1.0, 1.0)
+        ax.set_aspect('equal', adjustable='box')
+        ax.axis('off')
+        
+        # Draw qutrit line
+        ax.plot([-0.3, num_gates + 0.3], [0, 0], 'k-', linewidth=2.5, zorder=1)
+        
+        # Add qutrit label
+        ax.text(-0.45, 0, 'qutrit 0', ha='right', va='center',
+               fontsize=11, fontweight='bold')
+        
+        # Color scheme for different gate types
+        gate_colors = {
+            'Jx': '#FF6B6B',  # Red for Jx rotations
+            'Jy': '#4ECDC4',  # Teal for Jy rotations
+            'Jz': '#95E1D3',  # Light teal for Jz rotations
+            'Rx': '#FF6B6B',
+            'Ry': '#4ECDC4',
+            'Rz': '#95E1D3',
+        }
+        
+        # Draw each gate
+        for i, gate in enumerate(gates):
+            x = i
+            y = 0
+            
+            # Determine gate color and label
+            gate_label = gate['label']
+            color = gate_colors.get(gate_label, '#F3B61F')  # Default yellow
+            
+            # Draw gate box
+            box_width = 0.65
+            box_height = 0.65
+            box = FancyBboxPatch(
+                (x - box_width/2, y - box_height/2),
+                box_width, box_height,
+                boxstyle="round,pad=0.05",
+                facecolor=color,
+                edgecolor='black',
+                linewidth=2,
+                alpha=0.8,
+                zorder=2
+            )
+            ax.add_patch(box)
+            
+            # Add gate label
+            if show_gate_labels:
+                label_text = gate_label
+                ax.text(x, y, label_text, ha='center', va='center',
+                       fontsize=10, fontweight='bold', zorder=3)
+            
+            # Add gate number above
+            ax.text(x, y + 0.45, f'#{start_idx + i + 1}',
+                   ha='center', va='bottom', fontsize=8, color='gray')
+            
+            # Add angle below
+            if show_angles:
+                angle = gate['angle']
+                angle_text = f'{angle:.3f}'
+                ax.text(x, y - 0.50, angle_text,
+                       ha='center', va='top', fontsize=7,
+                       color='darkblue', family='monospace')
+        
+        # Add Trotter step separators if applicable
+        if gates and 'step' in gates[0]:
+            current_step = gates[0].get('step', -1)
+            for i, gate in enumerate(gates[1:], 1):
+                if gate.get('step', -1) != current_step:
+                    # Draw separator line
+                    x = i - 0.5
+                    ax.plot([x, x], [-0.6, 0.6], 'k--', linewidth=1.5,
+                           alpha=0.5, zorder=0)
+                    current_step = gate.get('step', -1)
 
 
 def convert_hamiltonian_to_mqt_circuit(
