@@ -648,7 +648,8 @@ class MQTShotSimulator:
         if shots < 50:
             raise ValueError("Number of shots must be at least 50 for MQT simulation")
         
-        # Normalize initial state
+        # Normalize initial state and ensure it's 1D
+        initial_state = initial_state.flatten()
         initial_state = initial_state / np.linalg.norm(initial_state)
         
         # Set default observables if not provided
@@ -667,68 +668,74 @@ class MQTShotSimulator:
         statevectors = []
         
         # Time evolution simulation
+        # Use step-by-step Trotter evolution like the statevector simulator
+        # This ensures the Trotter approximation remains accurate
+        current_state = initial_state.copy()
+        
         for i, t in enumerate(times):
-            # Create circuit for evolution up to time t
-            dt = t if i == 0 else (t - times[i-1])
-            
-            if i == 0:
-                # First time point - just measure initial state
-                circuit = self._create_measurement_circuit(initial_state)
-            else:
-                # Evolve from previous time
-                circuit = self._create_evolution_circuit(
-                    hamiltonian, times[i-1], t, initial_state
+            # Evolve to current time point (step-by-step from previous time)
+            if i > 0:
+                dt = times[i] - times[i-1]
+                hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
+                    hamiltonian, basis=self.decomposition_basis
                 )
+                U = self.trotter_decomp.time_evolution_operator(hamiltonian_terms, dt)
+                current_state = U @ current_state
+                current_state = current_state / np.linalg.norm(current_state)
             
-            # Run shot simulation with noise model
-            job = self.backend.run(circuit, shots=shots, noise_model=self.noise_model)
-            result = job.result()
-            
-            # Get measurement outcomes
-            measurement_outcomes = result.counts
-            statevector = result.state_vector[0]  # Shape is (1, 3)
+            # Ensure state is a 1D array
+            evolved_state = current_state.flatten()
             
             # Store statevector
-            statevectors.append(statevector.copy())
+            statevectors.append(evolved_state.copy())
             
-            # Convert outcomes to counts dictionary
-            counter = Counter(measurement_outcomes)
-            counts_dict = dict(counter)
-            counts_history.append(counts_dict)
-            
-            # Compute populations from shot statistics
+            # Compute populations from statevector (for reference)
+            populations[i, :] = np.abs(evolved_state) ** 2
             for m in range(3):
-                count_m = counts_dict.get(m, 0)
-                populations[i, m] = count_m / shots
-                # Standard error: sqrt(p(1-p)/N)
                 p = populations[i, m]
                 populations_std[i, m] = np.sqrt(p * (1 - p) / shots)
             
-            # Compute expectation values from shot measurements
-            # For each observable, we need to compute <O> = Σ_m m * P(m) * eigenvalue
+            # For each observable, measure in its eigenbasis
             for j, obs in enumerate(observables):
-                # Get eigenvalues and eigenvectors
+                # Get eigenvalues and eigenvectors of the observable
                 eigenvalues, eigenvectors = np.linalg.eigh(obs)
                 
-                # Compute expectation value from measurements
+                # Transform state to eigenbasis
+                # eigenvectors columns are eigenvectors in computational basis
+                # eigenvectors.conj().T transforms from computational to eigenbasis
+                state_in_eigenbasis = eigenvectors.conj().T @ evolved_state
+                
+                # Probabilities in eigenbasis
+                probabilities = np.abs(state_in_eigenbasis) ** 2
+                probabilities = probabilities / np.sum(probabilities)  # Normalize
+                
+                # Sample measurement outcomes from the distribution
+                # Outcome i corresponds to eigenvalue eigenvalues[i]
+                measurement_outcomes = np.random.choice(
+                    3, size=shots, p=probabilities
+                )
+                
+                # Compute expectation value from shots
                 expect_val = 0.0
                 variance = 0.0
                 
                 for outcome in measurement_outcomes:
-                    # Get basis state |m⟩
-                    basis_state = np.zeros(3, dtype=complex)
-                    basis_state[outcome] = 1.0
-                    
-                    # Compute observable value for this outcome
-                    obs_value = np.real(basis_state.conj() @ obs @ basis_state)
-                    expect_val += obs_value
-                    variance += obs_value ** 2
+                    eigenvalue = eigenvalues[outcome]
+                    expect_val += eigenvalue
+                    variance += eigenvalue ** 2
                 
                 expect_val /= shots
                 variance = (variance / shots) - expect_val ** 2
                 
                 expectations[i, j] = expect_val
-                expectations_std[i, j] = np.sqrt(variance / shots)  # Standard error
+                expectations_std[i, j] = np.sqrt(max(variance / shots, 0))  # Standard error
+            
+            # Store counts for computational basis (for reference)
+            comp_probs = np.abs(evolved_state) ** 2
+            comp_outcomes = np.random.choice(3, size=shots, p=comp_probs)
+            counter = Counter(comp_outcomes)
+            counts_dict = dict(counter)
+            counts_history.append(counts_dict)
         
         result = {
             'times': times,
@@ -902,6 +909,45 @@ class MQTShotSimulator:
         state_prep_unitary = self._state_preparation_unitary(state)
         from mqt.qudits.quantum_circuit.gates.custom_one import CustomOne
         CustomOne(circuit, 'StatePrep', 0, state_prep_unitary, 3)
+        
+        return circuit
+    
+    def _create_observable_measurement_circuit(self, 
+                                              state: np.ndarray,
+                                              eigenvectors: np.ndarray) -> 'QuantumCircuit':
+        """
+        Create a circuit that prepares a state and rotates to the eigenbasis of an observable.
+        
+        This enables proper shot-based measurement of the observable by:
+        1. Preparing the quantum state
+        2. Applying a basis rotation to transform to the eigenbasis
+        3. Measuring in the computational basis (which is now the eigenbasis)
+        
+        Parameters
+        ----------
+        state : ndarray
+            3x1 state vector to prepare
+        eigenvectors : ndarray
+            3x3 matrix of eigenvectors (as columns) of the observable
+            
+        Returns
+        -------
+        circuit : QuantumCircuit
+            MQT circuit that prepares the state and applies basis rotation
+        """
+        qreg = QuantumRegister('q', 1, [3])
+        circuit = QuantumCircuit(qreg)
+        
+        # Prepare the state
+        state_prep_unitary = self._state_preparation_unitary(state)
+        from mqt.qudits.quantum_circuit.gates.custom_one import CustomOne
+        CustomOne(circuit, 'StatePrep', 0, state_prep_unitary, 3)
+        
+        # Apply basis rotation to eigenbasis
+        # eigenvectors transforms from eigenbasis to computational basis
+        # eigenvectors.conj().T transforms from computational to eigenbasis
+        basis_rotation = eigenvectors.conj().T
+        CustomOne(circuit, 'BasisRotation', 0, basis_rotation, 3)
         
         return circuit
     
