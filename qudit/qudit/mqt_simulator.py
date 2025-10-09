@@ -612,9 +612,9 @@ class MQTShotSimulator:
         """
         Simulate Spin S=1 quantum dynamics using shot-based simulation.
         
-        This method applies the noise model (if provided) by executing quantum
-        circuits through MQT's backend with noisy gate operations for each
-        time evolution step.
+        When a noise model is present, applies depolarizing and dephasing noise
+        to the quantum state after each time evolution step, modeling the effect
+        of noisy gate operations.
         
         Parameters
         ----------
@@ -671,37 +671,25 @@ class MQTShotSimulator:
         populations_std = np.zeros((n_times, 3))
         statevectors = []
         
-        # Time evolution simulation with noise
-        # When noise is present, we need to execute circuits through MQT backend
-        # to get the noisy evolution
+        # Time evolution simulation
+        # Use step-by-step Trotter evolution like the statevector simulator
+        # This ensures the Trotter approximation remains accurate
         current_state = initial_state.copy()
         
         for i, t in enumerate(times):
             # Evolve to current time point (step-by-step from previous time)
             if i > 0:
                 dt = times[i] - times[i-1]
-                
-                # Apply noisy evolution using MQT backend
-                if self.has_significant_noise:
-                    # Create circuit for this evolution step
-                    circuit = self._create_evolution_step_circuit(
-                        hamiltonian, current_state, dt
-                    )
-                    
-                    # Execute circuit with noise model through backend
-                    # This returns the evolved state after noise
-                    current_state = self._execute_circuit_with_noise(
-                        circuit, shots
-                    )
-                else:
-                    # No significant noise: use ideal Trotter evolution
-                    hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
-                        hamiltonian, basis=self.decomposition_basis
-                    )
-                    U = self.trotter_decomp.time_evolution_operator(hamiltonian_terms, dt)
-                    current_state = U @ current_state
-                
+                hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
+                    hamiltonian, basis=self.decomposition_basis
+                )
+                U = self.trotter_decomp.time_evolution_operator(hamiltonian_terms, dt)
+                current_state = U @ current_state
                 current_state = current_state / np.linalg.norm(current_state)
+                
+                # Apply noise after evolution if significant noise model is present
+                if self.has_significant_noise:
+                    current_state = self._apply_noise_to_state(current_state)
             
             # Ensure state is a 1D array
             evolved_state = current_state.flatten()
@@ -771,6 +759,67 @@ class MQTShotSimulator:
         }
         
         return result
+    
+    def _apply_noise_to_state(self, state: np.ndarray) -> np.ndarray:
+        """
+        Apply depolarizing and dephasing noise to a quantum state.
+        
+        This simulates the effect of noisy gate operations by applying
+        noise channels directly to the state vector. The noise parameters
+        are extracted from the stored noise model.
+        
+        Depolarizing noise: Randomly replaces the state with a maximally mixed state
+        Dephasing noise: Randomly applies phase flips
+        
+        Parameters
+        ----------
+        state : ndarray
+            3x1 input state vector
+            
+        Returns
+        -------
+        noisy_state : ndarray
+            State after applying noise
+        """
+        from mqt.qudits.simulation.noise_tools import Noise
+        
+        # Extract noise parameters from the noise model
+        # The noise model was configured with Noise(probability_depolarizing, probability_dephasing)
+        # We need to extract these probabilities
+        
+        # Try to get the noise parameters
+        # This is a simplification - in practice, noise model may have gate-specific noise
+        p_depol = 0.0
+        p_dephase = 0.0
+        
+        # Check if there are quantum errors in the noise model
+        if hasattr(self.noise_model, 'quantum_errors') and self.noise_model.quantum_errors:
+            # Get noise from any gate (they should all have the same noise in our setup)
+            for gate_name, noise_obj in self.noise_model.quantum_errors.items():
+                if hasattr(noise_obj, 'prob_depolarizing'):
+                    p_depol = noise_obj.prob_depolarizing
+                if hasattr(noise_obj, 'prob_dephasing'):
+                    p_dephase = noise_obj.prob_dephasing
+                break  # Use first gate's noise parameters
+        
+        # Apply depolarizing noise
+        # With probability p_depol, replace state with maximally mixed state
+        if np.random.random() < p_depol:
+            # Depolarizing channel: ρ → (1-p)ρ + p·I/d
+            # For pure states, this means mixing with uniform superposition
+            mixed_state = np.ones(3, dtype=complex) / np.sqrt(3)
+            state = np.sqrt(1 - p_depol) * state + np.sqrt(p_depol) * mixed_state
+            state = state / np.linalg.norm(state)
+        
+        # Apply dephasing noise
+        # With probability p_dephase, apply random phase to each component
+        if np.random.random() < p_dephase:
+            # Dephasing channel: randomize relative phases
+            random_phases = np.exp(1j * np.random.uniform(0, 2*np.pi, 3))
+            state = state * random_phases
+            state = state / np.linalg.norm(state)
+        
+        return state
     
     def compare_all_methods(self,
                            hamiltonian: np.ndarray,
@@ -907,104 +956,6 @@ class MQTShotSimulator:
         }
         
         return comparison
-    
-    def _create_evolution_step_circuit(self,
-                                       hamiltonian: np.ndarray,
-                                       current_state: np.ndarray,
-                                       dt: float) -> 'QuantumCircuit':
-        """
-        Create a circuit for one time evolution step with noise.
-        
-        This creates a circuit that:
-        1. Prepares the current state
-        2. Applies the Trotter-decomposed evolution for time dt
-        
-        The noise model will be applied to the evolution gates when executed.
-        
-        Parameters
-        ----------
-        hamiltonian : ndarray
-            3x3 Hamiltonian matrix
-        current_state : ndarray
-            Current 3x1 state vector
-        dt : float
-            Time step for evolution
-            
-        Returns
-        -------
-        circuit : QuantumCircuit
-            MQT circuit for noisy evolution
-        """
-        qreg = QuantumRegister('q', 1, [3])
-        circuit = QuantumCircuit(qreg)
-        
-        from mqt.qudits.quantum_circuit.gates.custom_one import CustomOne
-        
-        # Prepare the current state
-        state_prep_unitary = self._state_preparation_unitary(current_state)
-        CustomOne(circuit, 'StatePrep', 0, state_prep_unitary, 3)
-        
-        # Add Trotter evolution operator
-        # The noise model will apply to this gate
-        hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
-            hamiltonian, basis=self.decomposition_basis
-        )
-        U_evolution = self.trotter_decomp.time_evolution_operator(hamiltonian_terms, dt)
-        CustomOne(circuit, 'custom_one', 0, U_evolution, 3)
-        
-        return circuit
-    
-    def _execute_circuit_with_noise(self, circuit: 'QuantumCircuit', shots: int) -> np.ndarray:
-        """
-        Execute a circuit with the noise model and return the evolved state.
-        
-        This method runs the circuit through MQT's backend with the noise model,
-        performs measurements, and reconstructs the density matrix from the
-        measurement statistics, then extracts the state.
-        
-        Parameters
-        ----------
-        circuit : QuantumCircuit
-            MQT quantum circuit to execute
-        shots : int
-            Number of shots for the simulation
-            
-        Returns
-        -------
-        evolved_state : ndarray
-            The evolved state after noise (3x1 vector)
-        """
-        # Execute circuit with noise model
-        # MQT's backend simulates noise by applying noisy gate operations
-        job = self.backend.run(circuit, shots=shots, noise_model=self.noise_model)
-        result = job.result()
-        
-        # Get the measurement counts
-        counts = result.get_counts()
-        
-        # Reconstruct the state from measurement statistics
-        # This gives us an estimate of the density matrix diagonal
-        total_shots = sum(counts.values())
-        state_probs = np.zeros(3)
-        
-        for outcome_str, count in counts.items():
-            # Parse the outcome string to get the basis state index
-            # MQT uses strings like '0', '1', '2' for qutrit outcomes
-            outcome_idx = int(outcome_str)
-            state_probs[outcome_idx] = count / total_shots
-        
-        # For a pure state approximation after noise, we use the square root
-        # This gives us |ψ⟩ ≈ √p₀|0⟩ + √p₁|1⟩ + √p₂|2⟩
-        # Note: This assumes the noise preserves some coherence
-        evolved_state = np.sqrt(state_probs + 1e-12)  # Small epsilon to avoid sqrt(0)
-        
-        # Add random phases (noise can introduce phase randomization)
-        # For depolarizing noise, phases become randomized
-        if self.has_significant_noise:
-            random_phases = np.exp(1j * np.random.uniform(0, 2*np.pi, 3))
-            evolved_state = evolved_state * random_phases
-        
-        return evolved_state
     
     def _create_measurement_circuit(self, state: np.ndarray) -> 'QuantumCircuit':
         """
