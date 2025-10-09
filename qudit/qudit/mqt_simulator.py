@@ -509,9 +509,9 @@ class MQTShotSimulator:
     sampling (shots), optionally with noise models. It can compare
     shot-based simulation with exact solutions and statevector simulations.
     
-    Unlike the MQTStatevectorSimulator which uses Trotter decomposition,
-    this simulator leverages MQT's built-in stochastic simulation capabilities
-    to sample measurement outcomes from quantum circuits.
+    Unlike the MQTStatevectorSimulator which uses ideal Trotter decomposition,
+    this simulator can model noisy quantum evolution by applying noise channels
+    (depolarizing and dephasing) to the quantum state after each evolution step.
     
     Attributes
     ----------
@@ -522,10 +522,18 @@ class MQTShotSimulator:
     backend : MISim
         MQT Qudits simulation backend
     noise_model : NoiseModel or None
-        Optional noise model for realistic simulations
+        Optional noise model (stored for compatibility with MQT API)
+    prob_depolarizing : float
+        Probability of depolarizing noise per evolution step
+    prob_dephasing : float
+        Probability of dephasing noise per evolution step
+    has_significant_noise : bool
+        Whether significant noise is present (affects simulation method)
         
     Examples
     --------
+    Basic usage without noise:
+    
     >>> import numpy as np
     >>> from qudit.qudit import get_spin1_operators, get_spin1_states
     >>> from qudit.qudit.mqt_simulator import MQTShotSimulator
@@ -539,9 +547,22 @@ class MQTShotSimulator:
     >>> states = get_spin1_states()
     >>> psi0 = states['m1']
     >>> 
-    >>> # Simulate with shots
+    >>> # Simulate with shots (no significant noise by default)
     >>> sim = MQTShotSimulator(trotter_order=2)
     >>> times = np.linspace(0, 1.0, 20)
+    >>> result = sim.simulate(H, psi0, times, shots=1000)
+    
+    Usage with noise:
+    
+    >>> from mqt.qudits.simulation.noise_tools import Noise, NoiseModel
+    >>> 
+    >>> # Create noise model
+    >>> noise = Noise(probability_depolarizing=0.05, probability_dephasing=0.03)
+    >>> noise_model = NoiseModel()
+    >>> noise_model.add_all_qudit_quantum_error(noise, ["x", "h", "rz", "r", "custom_one"])
+    >>> 
+    >>> # Simulate with noise
+    >>> sim = MQTShotSimulator(trotter_order=2, noise_model=noise_model, noise=noise)
     >>> result = sim.simulate(H, psi0, times, shots=1000)
     >>> 
     >>> # Compare with exact solution
@@ -551,7 +572,8 @@ class MQTShotSimulator:
     def __init__(self,
                  trotter_order: int = 2,
                  decomposition_basis: str = 'xyz',
-                 noise_model: Optional['NoiseModel'] = None):
+                 noise_model: Optional['NoiseModel'] = None,
+                 noise: Optional['Noise'] = None):
         """
         Initialize the MQT shot simulator.
         
@@ -567,14 +589,28 @@ class MQTShotSimulator:
             - 'full': Use complete Gell-Mann basis
             Default is 'xyz'.
         noise_model : NoiseModel, optional
-            Noise model for realistic simulations. If None, uses a minimal
-            noise model (near-zero noise) to enable shot simulation.
+            Noise model for realistic simulations. This is stored but not directly
+            used in the current implementation. Instead, noise parameters are extracted
+            from the 'noise' parameter or default values are used.
+            Default is None.
+        noise : Noise, optional
+            Noise object containing probability_depolarizing and probability_dephasing.
+            If provided, these probabilities will be used to apply noise to the quantum
+            state during evolution. If not provided, minimal (negligible) noise is used.
             Default is None.
             
         Raises
         ------
         ImportError
             If MQT Qudits is not installed
+            
+        Examples
+        --------
+        >>> from mqt.qudits.simulation.noise_tools import Noise, NoiseModel
+        >>> noise = Noise(probability_depolarizing=0.05, probability_dephasing=0.03)
+        >>> noise_model = NoiseModel()
+        >>> noise_model.add_all_qudit_quantum_error(noise, ["x", "h", "rz", "r", "custom_one"])
+        >>> sim = MQTShotSimulator(trotter_order=2, noise_model=noise_model, noise=noise)
         """
         if not MQT_AVAILABLE:
             raise ImportError(
@@ -591,17 +627,28 @@ class MQTShotSimulator:
         self.provider = MQTQuditProvider()
         self.backend = MISim(self.provider)
         
-        # Store or create noise model
+        # Store noise model (for potential future use)
         if noise_model is None:
-            # Create minimal noise model to enable shot simulation
-            # Use negligible noise that won't affect results
-            noise = Noise(probability_depolarizing=1e-12, probability_dephasing=1e-12)
+            # Create minimal noise model
+            default_noise = Noise(probability_depolarizing=1e-12, probability_dephasing=1e-12)
             self.noise_model = NoiseModel()
-            self.noise_model.add_all_qudit_quantum_error(noise, ["x", "h", "rz", "r", "custom_one"])
-            self.has_significant_noise = False
+            self.noise_model.add_all_qudit_quantum_error(default_noise, ["x", "h", "rz", "r", "custom_one"])
         else:
             self.noise_model = noise_model
-            self.has_significant_noise = True
+        
+        # Extract noise probabilities for direct application
+        if noise is not None:
+            # Use provided noise object
+            self.prob_depolarizing = noise.probability_depolarizing
+            self.prob_dephasing = noise.probability_dephasing
+            self.has_significant_noise = (self.prob_depolarizing > 1e-6 or 
+                                         self.prob_dephasing > 1e-6)
+        else:
+            # No noise provided - use negligible noise
+            self.prob_depolarizing = 1e-12
+            self.prob_dephasing = 1e-12
+            self.has_significant_noise = False
+
     
     def simulate(self,
                  hamiltonian: np.ndarray,
@@ -766,10 +813,12 @@ class MQTShotSimulator:
         
         This simulates the effect of noisy gate operations by applying
         noise channels directly to the state vector. The noise parameters
-        are extracted from the stored noise model.
+        are taken from self.prob_depolarizing and self.prob_dephasing.
         
-        Depolarizing noise: Randomly replaces the state with a maximally mixed state
-        Dephasing noise: Randomly applies phase flips
+        Depolarizing noise: With probability p_depol, mixes the state with
+            the maximally mixed state (uniform superposition)
+        Dephasing noise: With probability p_dephase, randomizes the relative
+            phases between basis states
         
         Parameters
         ----------
@@ -781,43 +830,29 @@ class MQTShotSimulator:
         noisy_state : ndarray
             State after applying noise
         """
-        from mqt.qudits.simulation.noise_tools import Noise
-        
-        # Extract noise parameters from the noise model
-        # The noise model was configured with Noise(probability_depolarizing, probability_dephasing)
-        # We need to extract these probabilities
-        
-        # Try to get the noise parameters
-        # This is a simplification - in practice, noise model may have gate-specific noise
-        p_depol = 0.0
-        p_dephase = 0.0
-        
-        # Check if there are quantum errors in the noise model
-        if hasattr(self.noise_model, 'quantum_errors') and self.noise_model.quantum_errors:
-            # Get noise from any gate (they should all have the same noise in our setup)
-            for gate_name, noise_obj in self.noise_model.quantum_errors.items():
-                if hasattr(noise_obj, 'prob_depolarizing'):
-                    p_depol = noise_obj.prob_depolarizing
-                if hasattr(noise_obj, 'prob_dephasing'):
-                    p_dephase = noise_obj.prob_dephasing
-                break  # Use first gate's noise parameters
-        
         # Apply depolarizing noise
         # With probability p_depol, replace state with maximally mixed state
-        if np.random.random() < p_depol:
-            # Depolarizing channel: ρ → (1-p)ρ + p·I/d
-            # For pure states, this means mixing with uniform superposition
-            mixed_state = np.ones(3, dtype=complex) / np.sqrt(3)
-            state = np.sqrt(1 - p_depol) * state + np.sqrt(p_depol) * mixed_state
-            state = state / np.linalg.norm(state)
+        # Depolarizing channel: ρ → (1-p)ρ + p·I/d
+        # For pure states: |ψ⟩ → √(1-p)|ψ⟩ + √p|uniform⟩
+        if self.prob_depolarizing > 1e-6:  # Only apply if noise is significant
+            if np.random.random() < self.prob_depolarizing:
+                # Mix with uniform superposition
+                mixed_state = np.ones(3, dtype=complex) / np.sqrt(3)
+                # Weighted combination
+                alpha = np.sqrt(1 - self.prob_depolarizing)
+                beta = np.sqrt(self.prob_depolarizing)
+                state = alpha * state + beta * mixed_state
+                state = state / np.linalg.norm(state)
         
         # Apply dephasing noise
         # With probability p_dephase, apply random phase to each component
-        if np.random.random() < p_dephase:
-            # Dephasing channel: randomize relative phases
-            random_phases = np.exp(1j * np.random.uniform(0, 2*np.pi, 3))
-            state = state * random_phases
-            state = state / np.linalg.norm(state)
+        # Dephasing channel: randomize relative phases
+        if self.prob_dephasing > 1e-6:  # Only apply if noise is significant
+            if np.random.random() < self.prob_dephasing:
+                # Randomize phases while preserving |ψ|²
+                random_phases = np.exp(1j * np.random.uniform(0, 2*np.pi, 3))
+                state = state * random_phases
+                state = state / np.linalg.norm(state)
         
         return state
     
