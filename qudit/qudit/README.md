@@ -7,7 +7,9 @@ This module provides a pure qudit-based implementation for simulating Spin S=1 q
 - **Pure Qudit Representation**: Direct 3×3 matrix operations on Spin S=1 states
 - **Suzuki-Trotter Decomposition**: Support for orders 1, 2, and 4
 - **Statevector Simulator**: Time evolution using Trotter-decomposed operators
+- **Shot Simulator**: Measurement sampling with configurable noise models (requires MQT Qudits)
 - **Exact Comparison**: Built-in comparison with exact matrix exponentiation
+- **Noise Models**: Depolarizing and dephasing noise for realistic quantum hardware simulation
 - **No Approximations**: Rigorous implementation without heuristic fallbacks
 
 ## Module Structure
@@ -16,7 +18,11 @@ This module provides a pure qudit-based implementation for simulating Spin S=1 q
 qudit/
 ├── __init__.py                    # Module interface
 ├── trotter_decomposition.py       # Suzuki-Trotter decomposition engine
-└── statevector_simulator.py       # Statevector simulator for Spin S=1
+├── statevector_simulator.py       # Statevector simulator for Spin S=1
+├── mqt_simulator.py               # MQT Qudits integration (statevector + shot simulation)
+├── circuit_visualization.py       # Circuit visualization tools
+├── SHOT_SIMULATION_API.md         # Shot simulation API documentation
+└── MQT_INTEGRATION.md             # MQT Qudits integration guide
 ```
 
 ## Installation
@@ -93,6 +99,38 @@ print(f"Min fidelity: {comparison['errors']['min_fidelity']:.8f}")
 print(f"Max population error: {comparison['errors']['max_pop_error']:.2e}")
 ```
 
+### Example 3: Shot Simulation with Noise (requires MQT Qudits)
+
+```python
+from qudit.qudit.mqt_simulator import MQTShotSimulator
+from mqt.qudits.simulation.noise_tools import Noise, NoiseModel
+
+# Create noise model
+noise = Noise(probability_depolarizing=0.05, probability_dephasing=0.03)
+noise_model = NoiseModel()
+noise_model.add_all_qudit_quantum_error(noise, ["x", "h", "rz", "r", "custom_one"])
+
+# Create shot simulator with noise
+sim_shots = MQTShotSimulator(trotter_order=2, noise_model=noise_model)
+
+# Hamiltonian
+H = -2 * np.pi * ops['Jz']
+psi0 = states['m1']
+times = np.linspace(0, 1.0, 50)
+
+# Run shot simulation
+result = sim_shots.simulate(H, psi0, times, shots=1000)
+
+# Access results with statistical errors
+print(f"<Jx> = {result['expect'][0, 0]:.4f} ± {result['expect_std'][0, 0]:.4f}")
+print(f"Measurement counts: {result['counts'][0]}")
+
+# Compare all methods: exact, statevector, and shot simulation
+comparison = sim_shots.compare_all_methods(H, psi0, times, shots=1000)
+print(f"Shot vs Exact fidelity: {comparison['errors']['min_fidelity_shot_exact']:.6f}")
+print(f"Statistical consistency (Z-score): {comparison['errors']['max_z_score']:.2f}")
+```
+
 ## API Reference
 
 ### StatevectorSimulator
@@ -114,6 +152,29 @@ sim = StatevectorSimulator(trotter_order=2, decomposition_basis='diag')
 
 - `compare_with_exact(hamiltonian, initial_state, times, observables=None)`: Compare with exact solution
   - Returns: Dictionary with 'trotter', 'exact', 'errors'
+
+### MQTShotSimulator (requires MQT Qudits)
+
+Shot-based simulator with noise model support.
+
+```python
+sim = MQTShotSimulator(trotter_order=2, noise_model=None)
+```
+
+**Parameters:**
+- `trotter_order` (int): Order of Trotter decomposition (1, 2, or 4). Default: 2
+- `decomposition_basis` (str): Hamiltonian decomposition basis. Default: 'xyz'
+- `noise_model` (NoiseModel, optional): MQT noise model. If None, uses minimal noise.
+
+**Methods:**
+
+- `simulate(hamiltonian, initial_state, times, shots=1000, observables=None)`: Run shot simulation
+  - Returns: Dictionary with 'times', 'shots', 'counts', 'expect', 'expect_std', 'populations', 'populations_std', 'statevector'
+
+- `compare_all_methods(hamiltonian, initial_state, times, shots=1000, observables=None)`: Compare exact, statevector, and shot simulations
+  - Returns: Dictionary with 'exact', 'statevector', 'shots', 'errors'
+
+**See also:** `SHOT_SIMULATION_API.md` for complete documentation
 
 ### Utility Functions
 
