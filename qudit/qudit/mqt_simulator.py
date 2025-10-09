@@ -648,7 +648,8 @@ class MQTShotSimulator:
         if shots < 50:
             raise ValueError("Number of shots must be at least 50 for MQT simulation")
         
-        # Normalize initial state
+        # Normalize initial state and ensure it's 1D
+        initial_state = initial_state.flatten()
         initial_state = initial_state / np.linalg.norm(initial_state)
         
         # Set default observables if not provided
@@ -667,21 +668,23 @@ class MQTShotSimulator:
         statevectors = []
         
         # Time evolution simulation
-        # Use Trotter decomposition directly instead of MQT circuits
-        # This is more reliable and allows proper observable measurements
+        # Use step-by-step Trotter evolution like the statevector simulator
+        # This ensures the Trotter approximation remains accurate
+        current_state = initial_state.copy()
+        
         for i, t in enumerate(times):
-            # Compute evolved statevector at this time
-            if i == 0:
-                # First time point - use initial state
-                evolved_state = initial_state
-            else:
-                # Evolve from t=0 to time t using Trotter decomposition
+            # Evolve to current time point (step-by-step from previous time)
+            if i > 0:
+                dt = times[i] - times[i-1]
                 hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
                     hamiltonian, basis=self.decomposition_basis
                 )
-                U = self.trotter_decomp.time_evolution_operator(hamiltonian_terms, t)
-                evolved_state = U @ initial_state
-                evolved_state = evolved_state / np.linalg.norm(evolved_state)
+                U = self.trotter_decomp.time_evolution_operator(hamiltonian_terms, dt)
+                current_state = U @ current_state
+                current_state = current_state / np.linalg.norm(current_state)
+            
+            # Ensure state is a 1D array
+            evolved_state = current_state.flatten()
             
             # Store statevector
             statevectors.append(evolved_state.copy())
