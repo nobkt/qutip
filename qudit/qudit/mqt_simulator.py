@@ -109,7 +109,8 @@ class MQTStatevectorSimulator:
                  hamiltonian: np.ndarray,
                  initial_state: np.ndarray,
                  times: np.ndarray,
-                 observables: Optional[List[np.ndarray]] = None) -> Dict:
+                 observables: Optional[List[np.ndarray]] = None,
+                 return_circuit: bool = False) -> Dict:
         """
         Simulate Spin S=1 quantum dynamics using MQT Qudits.
         
@@ -124,6 +125,9 @@ class MQTStatevectorSimulator:
         observables : list of ndarray, optional
             List of 3x3 observable operators to measure.
             If None, measures Jx, Jy, Jz by default.
+        return_circuit : bool, optional
+            If True, include circuit representation in the result.
+            Default is False.
             
         Returns
         -------
@@ -134,6 +138,7 @@ class MQTStatevectorSimulator:
             - 'expect': array of expectation values (n_times, n_observables)
             - 'populations': array of populations |⟨m|ψ(t)⟩|² (n_times, 3)
             - 'backend': name of the backend used ('MQT-MISim')
+            - 'circuit': QuditCircuit object (only if return_circuit=True)
         """
         # Validate inputs and convert to numpy arrays if needed
         hamiltonian = self._validate_hamiltonian(hamiltonian)
@@ -203,6 +208,12 @@ class MQTStatevectorSimulator:
             'trotter_order': self.trotter_order,
             'decomposition_basis': self.decomposition_basis
         }
+        
+        # Build circuit representation if requested
+        if return_circuit:
+            from .circuit_visualization import QuditCircuit
+            circuit = self._build_circuit(hamiltonian, times, initial_state)
+            result['circuit'] = circuit
         
         return result
     
@@ -542,6 +553,123 @@ class MQTStatevectorSimulator:
         fidelity = np.abs(overlap) ** 2
         
         return fidelity.real
+    
+    def _build_circuit(self, hamiltonian: np.ndarray, times: np.ndarray, 
+                       initial_state: np.ndarray) -> 'QuditCircuit':
+        """
+        Build a QuditCircuit representation of the time evolution.
+        
+        Parameters
+        ----------
+        hamiltonian : ndarray
+            3x3 Hamiltonian matrix
+        times : ndarray
+            Array of time points
+        initial_state : ndarray
+            Initial state vector
+            
+        Returns
+        -------
+        circuit : QuditCircuit
+            Circuit representation of the evolution
+        """
+        from .circuit_visualization import QuditCircuit
+        
+        circuit = QuditCircuit(num_qudits=1)
+        circuit.metadata = {
+            'hamiltonian': hamiltonian.copy(),
+            'initial_state': initial_state.copy(),
+            'times': times.copy(),
+            'trotter_order': self.trotter_order,
+            'decomposition_basis': self.decomposition_basis,
+            'num_time_steps': len(times) - 1
+        }
+        
+        # Decompose Hamiltonian
+        hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
+            hamiltonian, basis=self.decomposition_basis
+        )
+        
+        # Add gates for each time step
+        for i in range(1, len(times)):
+            dt = times[i] - times[i-1]
+            
+            # For each Hamiltonian term, add its evolution gate
+            for term_idx, H_term in enumerate(hamiltonian_terms):
+                # Identify the operator type
+                op_name = self._identify_operator(H_term)
+                
+                # Compute the coefficient (the eigenvalue tells us the strength)
+                coeff = self._extract_coefficient(H_term)
+                
+                # Add the evolution gate
+                matrix = scipy.linalg.expm(-1j * H_term * dt)
+                circuit.add_evolution_gate(
+                    operator_name=op_name,
+                    coeff=coeff,
+                    time=dt,
+                    matrix=matrix,
+                    description=f"Time step {i}/{len(times)-1}"
+                )
+        
+        return circuit
+    
+    def _identify_operator(self, operator: np.ndarray) -> str:
+        """
+        Identify which spin operator this matrix represents.
+        
+        Parameters
+        ----------
+        operator : ndarray
+            3x3 operator matrix
+            
+        Returns
+        -------
+        name : str
+            Name of the operator (e.g., 'Jx', 'Jy', 'Jz')
+        """
+        ops = self._get_default_observables()
+        Jx, Jy, Jz = ops[0], ops[1], ops[2]
+        
+        # Check if it's a pure Jx, Jy, or Jz operator (up to a scalar)
+        for name, base_op in [('Jx', Jx), ('Jy', Jy), ('Jz', Jz)]:
+            # Try to find scalar multiplier
+            non_zero_indices = np.abs(base_op) > 1e-10
+            if np.any(non_zero_indices):
+                ratio = operator[non_zero_indices] / base_op[non_zero_indices]
+                if np.allclose(ratio, ratio.flat[0]):
+                    # Check if scaled version matches
+                    if np.allclose(operator, ratio.flat[0] * base_op):
+                        return name
+        
+        # Check for quadratic terms
+        for name, base_op in [('Jx2', Jx @ Jx), ('Jy2', Jy @ Jy), ('Jz2', Jz @ Jz)]:
+            non_zero_indices = np.abs(base_op) > 1e-10
+            if np.any(non_zero_indices):
+                ratio = operator[non_zero_indices] / base_op[non_zero_indices]
+                if np.allclose(ratio, ratio.flat[0]):
+                    if np.allclose(operator, ratio.flat[0] * base_op):
+                        return name
+        
+        return 'General'
+    
+    def _extract_coefficient(self, operator: np.ndarray) -> float:
+        """
+        Extract the coefficient from a scaled operator.
+        
+        Parameters
+        ----------
+        operator : ndarray
+            3x3 operator matrix
+            
+        Returns
+        -------
+        coeff : float
+            The scaling coefficient
+        """
+        # Find the largest element (in magnitude) to determine scaling
+        max_elem = operator[np.unravel_index(np.argmax(np.abs(operator)), operator.shape)]
+        return np.abs(max_elem)
 
 
 class MQTShotSimulator:
@@ -699,7 +827,9 @@ class MQTShotSimulator:
                  times: np.ndarray,
                  shots: int = 1000,
                  observables: Optional[List[np.ndarray]] = None,
-                 noise_model: Optional[Dict[str, float]] = None) -> Dict:
+                 noise_model: Optional[Dict[str, float]] = None,
+                 measurement_points: Optional[np.ndarray] = None,
+                 return_circuit: bool = False) -> Dict:
         """
         Simulate Spin S=1 quantum dynamics using shot-based simulation.
         
@@ -729,12 +859,20 @@ class MQTShotSimulator:
             - 'amplitude_damping': Amplitude damping probability (treated as additional depolarizing)
             - 'dephasing': Dephasing noise probability
             If not provided, uses noise settings from initialization.
+        measurement_points : ndarray, optional
+            Specific time points at which to perform measurements.
+            If None, measurements are performed at all time points in `times`.
+            If provided, must be a subset of `times` or indices into `times`.
+            Default is None (measure at all points).
+        return_circuit : bool, optional
+            If True, include circuit representation in the result.
+            Default is False.
             
         Returns
         -------
         result : dict
             Dictionary containing:
-            - 'times': time array
+            - 'times': time array (full times if measurement_points is None, otherwise measurement_points)
             - 'shots': number of shots used
             - 'counts': list of measurement count dictionaries at each time
             - 'expect': array of expectation values from shot statistics (n_times, n_observables)
@@ -744,6 +882,7 @@ class MQTShotSimulator:
             - 'statevector': underlying statevector at each time (from noiseless simulation)
             - 'backend': name of the backend used
             - 'noise_model': whether significant noise was used
+            - 'circuit': QuditCircuit object (only if return_circuit=True)
         """
         # Validate inputs and convert to numpy arrays if needed
         hamiltonian = self._validate_hamiltonian(hamiltonian)
@@ -755,6 +894,26 @@ class MQTShotSimulator:
         # Normalize initial state and ensure it's 1D
         initial_state = initial_state.flatten()
         initial_state = initial_state / np.linalg.norm(initial_state)
+        
+        # Handle measurement_points parameter
+        if measurement_points is not None:
+            # Check if measurement_points are indices or actual time values
+            if np.issubdtype(measurement_points.dtype, np.integer):
+                # Indices into times array
+                measurement_indices = np.asarray(measurement_points)
+                measurement_times = times[measurement_indices]
+            else:
+                # Actual time values - find closest indices
+                measurement_times = np.asarray(measurement_points)
+                measurement_indices = []
+                for t in measurement_times:
+                    idx = np.argmin(np.abs(times - t))
+                    measurement_indices.append(idx)
+                measurement_indices = np.array(measurement_indices)
+        else:
+            # Measure at all time points
+            measurement_indices = np.arange(len(times))
+            measurement_times = times.copy()
         
         # Handle noise_model parameter if provided
         # Save original noise settings to restore later
@@ -787,20 +946,23 @@ class MQTShotSimulator:
                           for obs in observables]
         
         # Prepare result arrays
-        n_times = len(times)
+        n_measurement_points = len(measurement_indices)
         n_obs = len(observables)
         
         counts_history = []
-        expectations = np.zeros((n_times, n_obs))
-        expectations_std = np.zeros((n_times, n_obs))
-        populations = np.zeros((n_times, 3))
-        populations_std = np.zeros((n_times, 3))
+        expectations = np.zeros((n_measurement_points, n_obs))
+        expectations_std = np.zeros((n_measurement_points, n_obs))
+        populations = np.zeros((n_measurement_points, 3))
+        populations_std = np.zeros((n_measurement_points, 3))
         statevectors = []
         
         # Time evolution simulation
         # Use step-by-step Trotter evolution like the statevector simulator
         # This ensures the Trotter approximation remains accurate
         current_state = initial_state.copy()
+        
+        # Keep track of which measurement index we're at
+        meas_idx = 0
         
         for i, t in enumerate(times):
             # Evolve to current time point (step-by-step from previous time)
@@ -817,6 +979,10 @@ class MQTShotSimulator:
                 if self.has_significant_noise:
                     current_state = self._apply_noise_to_state(current_state)
             
+            # Check if this is a measurement point
+            if i not in measurement_indices:
+                continue
+            
             # Ensure state is a 1D array
             evolved_state = current_state.flatten()
             
@@ -824,10 +990,10 @@ class MQTShotSimulator:
             statevectors.append(evolved_state.copy())
             
             # Compute populations from statevector (for reference)
-            populations[i, :] = np.abs(evolved_state) ** 2
+            populations[meas_idx, :] = np.abs(evolved_state) ** 2
             for m in range(3):
-                p = populations[i, m]
-                populations_std[i, m] = np.sqrt(p * (1 - p) / shots)
+                p = populations[meas_idx, m]
+                populations_std[meas_idx, m] = np.sqrt(p * (1 - p) / shots)
             
             # For each observable, measure in its eigenbasis
             for j, obs in enumerate(observables):
@@ -861,8 +1027,8 @@ class MQTShotSimulator:
                 expect_val /= shots
                 variance = (variance / shots) - expect_val ** 2
                 
-                expectations[i, j] = expect_val
-                expectations_std[i, j] = np.sqrt(max(variance / shots, 0))  # Standard error
+                expectations[meas_idx, j] = expect_val
+                expectations_std[meas_idx, j] = np.sqrt(max(variance / shots, 0))  # Standard error
             
             # Store counts for computational basis (for reference)
             comp_probs = np.abs(evolved_state) ** 2
@@ -870,9 +1036,11 @@ class MQTShotSimulator:
             counter = Counter(comp_outcomes)
             counts_dict = dict(counter)
             counts_history.append(counts_dict)
+            
+            meas_idx += 1
         
         result = {
-            'times': times,
+            'times': measurement_times,
             'shots': shots,
             'counts': counts_history,
             'expect': expectations,
@@ -883,6 +1051,12 @@ class MQTShotSimulator:
             'backend': 'MQT-Shots',
             'has_significant_noise': self.has_significant_noise
         }
+        
+        # Build circuit representation if requested
+        if return_circuit:
+            from .circuit_visualization import QuditCircuit
+            circuit = self._build_circuit(hamiltonian, times, initial_state)
+            result['circuit'] = circuit
         
         # Restore original noise settings if they were temporarily overridden
         if noise_model is not None:
@@ -1366,3 +1540,123 @@ class MQTShotSimulator:
         fidelity = np.abs(overlap) ** 2
         
         return fidelity.real
+    
+    def _build_circuit(self, hamiltonian: np.ndarray, times: np.ndarray, 
+                       initial_state: np.ndarray) -> 'QuditCircuit':
+        """
+        Build a QuditCircuit representation of the time evolution.
+        
+        Parameters
+        ----------
+        hamiltonian : ndarray
+            3x3 Hamiltonian matrix
+        times : ndarray
+            Array of time points
+        initial_state : ndarray
+            Initial state vector
+            
+        Returns
+        -------
+        circuit : QuditCircuit
+            Circuit representation of the evolution
+        """
+        from .circuit_visualization import QuditCircuit
+        
+        circuit = QuditCircuit(num_qudits=1)
+        circuit.metadata = {
+            'hamiltonian': hamiltonian.copy(),
+            'initial_state': initial_state.copy(),
+            'times': times.copy(),
+            'trotter_order': self.trotter_order,
+            'decomposition_basis': self.decomposition_basis,
+            'num_time_steps': len(times) - 1,
+            'has_noise': self.has_significant_noise,
+            'prob_depolarizing': self.prob_depolarizing,
+            'prob_dephasing': self.prob_dephasing
+        }
+        
+        # Decompose Hamiltonian
+        hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
+            hamiltonian, basis=self.decomposition_basis
+        )
+        
+        # Add gates for each time step
+        for i in range(1, len(times)):
+            dt = times[i] - times[i-1]
+            
+            # For each Hamiltonian term, add its evolution gate
+            for term_idx, H_term in enumerate(hamiltonian_terms):
+                # Identify the operator type
+                op_name = self._identify_operator(H_term)
+                
+                # Compute the coefficient (the eigenvalue tells us the strength)
+                coeff = self._extract_coefficient(H_term)
+                
+                # Add the evolution gate
+                matrix = scipy.linalg.expm(-1j * H_term * dt)
+                circuit.add_evolution_gate(
+                    operator_name=op_name,
+                    coeff=coeff,
+                    time=dt,
+                    matrix=matrix,
+                    description=f"Time step {i}/{len(times)-1}"
+                )
+        
+        return circuit
+    
+    def _identify_operator(self, operator: np.ndarray) -> str:
+        """
+        Identify which spin operator this matrix represents.
+        
+        Parameters
+        ----------
+        operator : ndarray
+            3x3 operator matrix
+            
+        Returns
+        -------
+        name : str
+            Name of the operator (e.g., 'Jx', 'Jy', 'Jz')
+        """
+        ops = self._get_default_observables()
+        Jx, Jy, Jz = ops[0], ops[1], ops[2]
+        
+        # Check if it's a pure Jx, Jy, or Jz operator (up to a scalar)
+        for name, base_op in [('Jx', Jx), ('Jy', Jy), ('Jz', Jz)]:
+            # Try to find scalar multiplier
+            non_zero_indices = np.abs(base_op) > 1e-10
+            if np.any(non_zero_indices):
+                ratio = operator[non_zero_indices] / base_op[non_zero_indices]
+                if np.allclose(ratio, ratio.flat[0]):
+                    # Check if scaled version matches
+                    if np.allclose(operator, ratio.flat[0] * base_op):
+                        return name
+        
+        # Check for quadratic terms
+        for name, base_op in [('Jx2', Jx @ Jx), ('Jy2', Jy @ Jy), ('Jz2', Jz @ Jz)]:
+            non_zero_indices = np.abs(base_op) > 1e-10
+            if np.any(non_zero_indices):
+                ratio = operator[non_zero_indices] / base_op[non_zero_indices]
+                if np.allclose(ratio, ratio.flat[0]):
+                    if np.allclose(operator, ratio.flat[0] * base_op):
+                        return name
+        
+        return 'General'
+    
+    def _extract_coefficient(self, operator: np.ndarray) -> float:
+        """
+        Extract the coefficient from a scaled operator.
+        
+        Parameters
+        ----------
+        operator : ndarray
+            3x3 operator matrix
+            
+        Returns
+        -------
+        coeff : float
+            The scaling coefficient
+        """
+        # Find the largest element (in magnitude) to determine scaling
+        max_elem = operator[np.unravel_index(np.argmax(np.abs(operator)), operator.shape)]
+        return np.abs(max_elem)
