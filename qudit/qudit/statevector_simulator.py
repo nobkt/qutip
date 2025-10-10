@@ -89,9 +89,9 @@ class StatevectorSimulator:
             - 'fidelity': fidelity with exact solution if available
             - 'circuit': QuditCircuit object (if return_circuit=True)
         """
-        # Validate inputs
-        self._validate_hamiltonian(hamiltonian)
-        self._validate_state(initial_state)
+        # Validate inputs and convert to numpy arrays if needed
+        hamiltonian = self._validate_hamiltonian(hamiltonian)
+        initial_state = self._validate_state(initial_state)
         
         # Normalize initial state
         initial_state = initial_state / np.linalg.norm(initial_state)
@@ -99,6 +99,10 @@ class StatevectorSimulator:
         # Set default observables if not provided
         if observables is None:
             observables = self._get_default_observables()
+        else:
+            # Convert observables to numpy arrays if they are Qobj
+            observables = [obs.full() if hasattr(obs, 'full') else np.asarray(obs) 
+                          for obs in observables]
         
         # Decompose Hamiltonian for Trotter decomposition
         hamiltonian_terms = self.trotter_decomp.decompose_hamiltonian(
@@ -314,26 +318,65 @@ class StatevectorSimulator:
         
         return [Jx, Jy, Jz]
     
-    def _validate_hamiltonian(self, H: np.ndarray):
-        """Validate that the Hamiltonian is a proper 3x3 Hermitian matrix."""
-        if H.shape != (3, 3):
-            raise ValueError(f"Hamiltonian must be 3x3, got shape {H.shape}")
+    def _validate_hamiltonian(self, H):
+        """Validate that the Hamiltonian is a proper 3x3 Hermitian matrix.
+        
+        Parameters
+        ----------
+        H : ndarray or Qobj
+            Hamiltonian matrix to validate. If Qobj, will be converted to ndarray.
+            
+        Returns
+        -------
+        H_array : ndarray
+            The Hamiltonian as a numpy array.
+        """
+        # Convert Qobj to numpy array if needed
+        if hasattr(H, 'full'):
+            # This is a QuTiP Qobj
+            H_array = H.full()
+        else:
+            H_array = np.asarray(H)
+        
+        if H_array.shape != (3, 3):
+            raise ValueError(f"Hamiltonian must be 3x3, got shape {H_array.shape}")
         
         # Check Hermiticity
-        if not np.allclose(H, H.conj().T):
+        if not np.allclose(H_array, H_array.conj().T):
             raise ValueError("Hamiltonian must be Hermitian")
+        
+        return H_array
     
-    def _validate_state(self, state: np.ndarray):
-        """Validate that the state is a proper 3x1 state vector."""
-        state = state.flatten()
-        if len(state) != 3:
-            raise ValueError(f"State must be 3-dimensional, got {len(state)}")
+    def _validate_state(self, state):
+        """Validate that the state is a proper 3x1 state vector.
+        
+        Parameters
+        ----------
+        state : ndarray or Qobj
+            State vector to validate. If Qobj, will be converted to ndarray.
+            
+        Returns
+        -------
+        state_array : ndarray
+            The state as a flattened numpy array.
+        """
+        # Convert Qobj to numpy array if needed
+        if hasattr(state, 'full'):
+            # This is a QuTiP Qobj
+            state_array = state.full().flatten()
+        else:
+            state_array = np.asarray(state).flatten()
+        
+        if len(state_array) != 3:
+            raise ValueError(f"State must be 3-dimensional, got {len(state_array)}")
         
         # Check normalization (with tolerance)
-        norm = np.linalg.norm(state)
+        norm = np.linalg.norm(state_array)
         if not np.isclose(norm, 1.0, atol=1e-6):
             # We'll normalize it, but warn
             pass
+        
+        return state_array
     
     def _expectation_value(self, operator: np.ndarray, state: np.ndarray) -> float:
         """
