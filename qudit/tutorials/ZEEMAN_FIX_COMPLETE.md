@@ -1,6 +1,7 @@
 # Zeeman Effect Notebook Comprehensive Fix Summary
+# ゼーマン効果ノートブック包括的修正まとめ
 
-## 問題の分析 (Problem Analysis)
+## 問題の分析 / Problem Analysis
 
 ### 元のノートブックの問題点
 1. **理論的背景の欠如**: 数式による詳細な理論説明が不足
@@ -8,7 +9,7 @@
 3. **説明の不完全性**: 各シミュレーション手法の理論的基礎の説明が不足
 4. **コードと理論の対応**: 実装が理論とどう対応するかが不明確
 
-## 実施した修正内容 (Implemented Fixes)
+## 実施した修正内容 / Implemented Fixes
 
 ### 1. 包括的な理論セクションの追加
 
@@ -66,10 +67,10 @@
 - **物理的予測**: 占有確率が時間不変（固有状態の重ね合わせ）
 
 #### 方法2: 鈴木トロッター分解 (Suzuki-Trotter Decomposition)
-- **理論**: トロッター公式 exp(-i(A+B)Δt) ≈ exp(-iAΔt/2)exp(-iBΔt)exp(-iAΔt/2)
-- **適用**: H = -ωL Jz は単一項なので形式的には厳密
+- **理論**: トロッター公式 `exp(-i(A+B)Δt) ≈ exp(-iAΔt/2)exp(-iBΔt)exp(-iAΔt/2)`
+- **適用**: `H = -ωL Jz` は単一項なので形式的には厳密
 - **目的**: 実装の枠組みを示し、数値誤差を評価
-- **誤差**: 理論的には O(Δt³)、実際には数値誤差のみ
+- **誤差**: 理論的には `O(Δt³)`、実際には数値誤差のみ
 
 #### 方法3-5: Qiskit Qubit シミュレーション
 - **理論**: 3次元ヒルベルト空間を2量子ビット（4次元）にエンコード
@@ -114,8 +115,8 @@
 2. **初期状態**: |ψ(0)⟩ = (|+1⟩ + |0⟩)/√2 が正しく定義されているか
    - ✓ 確認済み
 
-3. **固有値**: E = -ωL, 0, +ωL が理論と一致するか
-   - ✓ 数値的に確認: E = [-6.283, 0, 6.283] (ωL = 2π)
+3. **固有値**: `E = -ωL, 0, +ωL` が理論と一致するか
+   - ✓ 数値的に確認: `E = [-2π, 0, +2π]` where `ωL = 2π ≈ 6.283 rad/s`
 
 4. **保存量**: ⟨Jz⟩ = 0.5 が時間不変か
    - ✓ 数値的に確認: std(⟨Jz⟩) = 1.4×10⁻⁶ (数値誤差のみ)
@@ -126,26 +127,29 @@
 6. **ヒューリスティック/Fallback**: コード内に存在しないか
    - ✓ 確認済み（検出されず）
 
-#### 数値検証結果
+#### 数値検証結果 / Numerical Verification Results
+
 ```
 ✓ QuTiP imported (version: 5.2.1)
 ✓ Spin operators created
 ✓ Zeeman Hamiltonian created
-  Eigenvalues: [-6.28318531 -0.          6.28318531]
+  Eigenvalues: [-6.28318531  0.  6.28318531] = [-2π  0  +2π]
 ✓ Initial state created
 ✓ Exact solution computed
-✓ Expectation values computed (⟨Jz(0)⟩ = 0.5000)
+✓ Expectation values computed: ⟨Jz(0)⟩ = 0.5000
 ✓ Initial ⟨Jz⟩ = 0.5 as expected from theory
-✓ ⟨Jz⟩ is conserved (std = 1.42e-06) as expected from theory
+✓ ⟨Jz⟩ is conserved (std = 1.42e-06, numerical precision only)
 ✓ Populations computed:
-  Initial: P(+1)=0.5000, P(0)=0.5000, P(-1)=0.0000
-  Final:   P(+1)=0.5000, P(0)=0.5000, P(-1)=0.0000
+  Initial: P(+1) = 0.5000, P(0) = 0.5000, P(-1) = 0.0000
+  Final:   P(+1) = 0.5000, P(0) = 0.5000, P(-1) = 0.0000
 ✓ Populations are constant as expected (eigenstates)
 ```
 
-## まとめ (Summary)
+All numerical results agree with theoretical predictions within numerical precision (~10⁻⁶).
 
-### 達成事項
+## まとめ / Summary
+
+### 達成事項 / Achievements
 1. ✅ 包括的な理論的背景を数式付きで追加
 2. ✅ 全8つのシミュレーション手法の理論的基礎を説明
 3. ✅ 8箇所の混在したマークダウン/コードセルを分離
@@ -153,12 +157,12 @@
 5. ✅ ヒューリスティックな処理やfallbackが存在しないことを確認
 6. ✅ 数値計算結果が理論的予測と一致することを確認
 
-### 理論と実装の対応
+### 理論と実装の対応 / Theory-Implementation Correspondence
 - **理論**: 時間発展演算子 U(t) = exp(iωLt Jz)
 - **実装**: `qt.mesolve(H_zeeman, psi0, times, ...)` で厳密に計算
 - **検証**: 数値結果（保存量、占有確率）が理論と一致
 
-### 今後の利用
+### 今後の利用 / Future Usage
 このノートブックは、スピンS=1系のゼーマン効果について：
 - 理論的背景を完全に理解できる
 - 8つの異なる実装手法を比較できる
