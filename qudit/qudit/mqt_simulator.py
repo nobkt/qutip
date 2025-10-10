@@ -698,7 +698,8 @@ class MQTShotSimulator:
                  initial_state: np.ndarray,
                  times: np.ndarray,
                  shots: int = 1000,
-                 observables: Optional[List[np.ndarray]] = None) -> Dict:
+                 observables: Optional[List[np.ndarray]] = None,
+                 noise_model: Optional[Dict[str, float]] = None) -> Dict:
         """
         Simulate Spin S=1 quantum dynamics using shot-based simulation.
         
@@ -719,6 +720,15 @@ class MQTShotSimulator:
         observables : list of ndarray, optional
             List of 3x3 observable operators to measure.
             If None, measures Jx, Jy, Jz by default.
+        noise_model : dict, optional
+            Dictionary of noise parameters. If provided, these parameters will be
+            used for this simulation, overriding the noise settings from __init__.
+            Supported keys:
+            - 'depolarizing_1q': Depolarizing noise probability for single-qudit gates
+            - 'depolarizing_2q': Depolarizing noise probability for two-qudit gates (not used for single qudit)
+            - 'amplitude_damping': Amplitude damping probability (treated as additional depolarizing)
+            - 'dephasing': Dephasing noise probability
+            If not provided, uses noise settings from initialization.
             
         Returns
         -------
@@ -745,6 +755,28 @@ class MQTShotSimulator:
         # Normalize initial state and ensure it's 1D
         initial_state = initial_state.flatten()
         initial_state = initial_state / np.linalg.norm(initial_state)
+        
+        # Handle noise_model parameter if provided
+        # Save original noise settings to restore later
+        original_prob_depolarizing = self.prob_depolarizing
+        original_prob_dephasing = self.prob_dephasing
+        original_has_significant_noise = self.has_significant_noise
+        
+        if noise_model is not None:
+            # Parse noise parameters from dictionary
+            # depolarizing_1q: single-qudit depolarizing noise
+            # amplitude_damping: treated as additional depolarizing
+            # dephasing: explicit dephasing parameter
+            prob_depol = noise_model.get('depolarizing_1q', 0.0)
+            prob_amp_damp = noise_model.get('amplitude_damping', 0.0)
+            prob_dephase = noise_model.get('dephasing', 0.0)
+            
+            # Combine depolarizing and amplitude damping
+            # (both lead to loss of coherence)
+            self.prob_depolarizing = prob_depol + prob_amp_damp
+            self.prob_dephasing = prob_dephase
+            self.has_significant_noise = (self.prob_depolarizing > 1e-6 or 
+                                         self.prob_dephasing > 1e-6)
         
         # Set default observables if not provided
         if observables is None:
@@ -851,6 +883,12 @@ class MQTShotSimulator:
             'backend': 'MQT-Shots',
             'has_significant_noise': self.has_significant_noise
         }
+        
+        # Restore original noise settings if they were temporarily overridden
+        if noise_model is not None:
+            self.prob_depolarizing = original_prob_depolarizing
+            self.prob_dephasing = original_prob_dephasing
+            self.has_significant_noise = original_has_significant_noise
         
         return result
     
