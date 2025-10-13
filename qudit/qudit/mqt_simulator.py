@@ -30,6 +30,132 @@ except ImportError:
     MQTQuditProvider = None
 
 
+class MQTSimulator:
+    """
+    Generic MQT simulator interface for multi-qudit systems.
+    
+    This class provides a unified interface to MQT Qudits simulation backends,
+    supporting both statevector and shot-based simulations. It is designed to
+    work with multi-qudit systems where each qudit can have arbitrary dimension.
+    
+    This class serves as a compatibility layer for code that expects a generic
+    MQTSimulator interface. For Spin S=1 specific simulations with more features,
+    use MQTStatevectorSimulator or MQTShotSimulator directly.
+    
+    Parameters
+    ----------
+    num_qudits : int
+        Number of qudits in the system
+    qudit_dim : int or list of int
+        Dimension(s) of the qudits. If int, all qudits have the same dimension.
+        If list, specifies dimension for each qudit.
+    trotter_order : int, optional
+        Order of Suzuki-Trotter decomposition (1, 2, or 4). Default is 2.
+    decomposition_basis : str, optional
+        Basis for Hamiltonian decomposition. Default is 'xyz'.
+        
+    Attributes
+    ----------
+    num_qudits : int
+        Number of qudits
+    qudit_dims : list of int
+        Dimension of each qudit
+    provider : MQTQuditProvider
+        MQT Qudits provider instance
+    backend : MISim
+        MQT simulation backend
+        
+    Examples
+    --------
+    >>> # Create a simulator for 2 qutrits (3-level systems)
+    >>> sim = MQTSimulator(num_qudits=2, qudit_dim=3)
+    >>> 
+    >>> # For a mixed-dimension system
+    >>> sim = MQTSimulator(num_qudits=3, qudit_dim=[2, 3, 3])
+    
+    Raises
+    ------
+    ImportError
+        If MQT Qudits is not installed
+    """
+    
+    def __init__(self,
+                 num_qudits: int,
+                 qudit_dim: int | List[int],
+                 trotter_order: int = 2,
+                 decomposition_basis: str = 'xyz'):
+        """
+        Initialize the MQT simulator.
+        
+        Parameters
+        ----------
+        num_qudits : int
+            Number of qudits in the system
+        qudit_dim : int or list of int
+            Dimension(s) of the qudits
+        trotter_order : int, optional
+            Order of Suzuki-Trotter decomposition. Default is 2.
+        decomposition_basis : str, optional
+            Basis for Hamiltonian decomposition. Default is 'xyz'.
+        """
+        if not MQT_AVAILABLE:
+            raise ImportError(
+                "MQT Qudits is not installed. "
+                "Install it with: pip install mqt.qudits"
+            )
+        
+        self.num_qudits = num_qudits
+        
+        # Handle qudit_dim as int or list
+        if isinstance(qudit_dim, int):
+            self.qudit_dims = [qudit_dim] * num_qudits
+        else:
+            self.qudit_dims = list(qudit_dim)
+            if len(self.qudit_dims) != num_qudits:
+                raise ValueError(
+                    f"Length of qudit_dim list ({len(self.qudit_dims)}) "
+                    f"must match num_qudits ({num_qudits})"
+                )
+        
+        self.trotter_order = trotter_order
+        self.decomposition_basis = decomposition_basis
+        
+        # Initialize MQT backend
+        self.provider = MQTQuditProvider()
+        self.backend = MISim(self.provider)
+        
+        # Calculate total Hilbert space dimension
+        self.total_dim = np.prod(self.qudit_dims)
+    
+    def create_circuit(self) -> QuantumCircuit:
+        """
+        Create an empty quantum circuit with the configured qudits.
+        
+        Returns
+        -------
+        circuit : QuantumCircuit
+            MQT quantum circuit initialized with the specified qudits
+        """
+        if not MQT_AVAILABLE:
+            raise ImportError("MQT Qudits is not available")
+        
+        # Create quantum register with the specified dimensions
+        qreg = QuantumRegister('q', self.num_qudits, self.qudit_dims)
+        circuit = QuantumCircuit(qreg)
+        
+        return circuit
+    
+    def __repr__(self):
+        return (f"MQTSimulator(num_qudits={self.num_qudits}, "
+                f"qudit_dims={self.qudit_dims}, "
+                f"total_dim={self.total_dim})")
+    
+    def __str__(self):
+        dims_str = f"[{', '.join(f'd={d}' for d in self.qudit_dims)}]"
+        return (f"MQT Simulator with {self.num_qudits} qudits {dims_str}, "
+                f"total dimension: {self.total_dim}")
+
+
 class MQTStatevectorSimulator:
     """
     Statevector simulator for Spin S=1 using MQT Qudits backend.

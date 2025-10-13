@@ -591,3 +591,65 @@ def visualize_bloch_sphere_trajectory(states: List[np.ndarray],
     
     plt.tight_layout()
     return fig, ax if projection == '3d' else axes
+
+
+class CircuitVisualizer:
+    """
+    Visualizer for quantum circuits (compatibility class).
+    
+    This class provides a simple interface for circuit visualization.
+    It wraps the QuditCircuit class and provides convenience methods
+    for visualization.
+    
+    This class is provided for backwards compatibility with the notebook
+    `qudit/tutorials/triplet_triplet_annihilation.ipynb` which expects
+    to import CircuitVisualizer. The class provides a minimal interface
+    that allows the notebook's import statements to succeed.
+    
+    For new code, use QuditCircuit directly along with the standalone
+    visualization functions `visualize_state_evolution` and
+    `visualize_bloch_sphere_trajectory` which provide more comprehensive
+    visualization capabilities including:
+    - State evolution plots with populations over time
+    - 3D Bloch sphere trajectory visualization for Spin S=1 states
+    - Expectation value plots for observables (Jx, Jy, Jz)
+    
+    Parameters
+    ----------
+    num_qudits : int, optional
+        Number of qudits in the circuit. Default is 1.
+        
+    Attributes
+    ----------
+    num_qudits : int
+        Number of qudits in the circuit
+    circuit : QuditCircuit
+        Underlying circuit object that can be used for more advanced operations
+        
+    Examples
+    --------
+    >>> # Basic usage
+    >>> visualizer = CircuitVisualizer(num_qudits=1)
+    >>> 
+    >>> # Access underlying circuit for advanced operations
+    >>> circuit = visualizer.circuit
+    >>> circuit.add_evolution_gate('Jz', coeff=1.0, time=0.1, matrix=U)
+    """
+    
+    def __init__(self, num_qudits: int = 1):
+        """
+        Initialize the circuit visualizer.
+        
+        Parameters
+        ----------
+        num_qudits : int, optional
+            Number of qudits in the circuit. Default is 1.
+        """
+        self.num_qudits = num_qudits
+        self.circuit = QuditCircuit(num_qudits=num_qudits)
+    
+    def __repr__(self):
+        return f"CircuitVisualizer(num_qudits={self.num_qudits})"
+    
+    def __str__(self):
+        return f"Circuit visualizer for {self.num_qudits} qudit(s)"
