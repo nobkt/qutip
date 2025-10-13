@@ -276,3 +276,54 @@ GitHubのIssueやPull Requestをご利用ください。
 ## ライセンス
 
 これらのチュートリアルはQuTiPプロジェクトの一部として配布されます。
+
+## Triplet-Triplet Annihilation (TTA) Simulation
+
+### Files
+
+- **[triplet_triplet_annihilation_theory.md](triplet_triplet_annihilation_theory.md)**: Complete theoretical documentation with detailed mathematical formulas
+- **[triplet_triplet_annihilation.ipynb](triplet_triplet_annihilation.ipynb)**: Comprehensive Jupyter notebook implementation
+- **[TTA_IMPLEMENTATION_SUMMARY.md](TTA_IMPLEMENTATION_SUMMARY.md)**: Implementation summary and completion report
+
+### Overview
+
+This tutorial simulates the quantum dynamics of triplet-triplet annihilation (TTA) in two dye molecules A and B. The system includes:
+
+- **Electronic states**: Ground singlet (S₀), excited triplet (T₁), excited singlet (S₁)
+- **Processes**: Energy transfer (T₁ ↔ S₀) and triplet-triplet annihilation (T₁ + T₁ → S₁ + S₀)
+- **Initial state**: Molecule A in T₁, Molecule B in S₀
+
+### Implementations
+
+1. **Classical rate equation model**: ODE-based kinetic simulation
+2. **Quantum mechanical description**: Exact Hamiltonian evolution
+3. **Qubit representation (Qiskit)**: 4-qubit encoding with quantum circuits
+4. **Qudit representation (MQT)**: 2-qutrit encoding with quantum circuits
+
+All implementations use Suzuki-Trotter decomposition for time evolution and include both statevector and shot-based simulations.
+
+### Features
+
+- Complete mathematical theory with no omissions
+- Comparative analysis of classical vs quantum models
+- Qubit vs Qudit resource comparison
+- Circuit analysis (qubit/qudit count, gate count, depth)
+- Circuit visualization
+- Population dynamics visualization
+
+### Requirements
+
+- Python 3.9+
+- NumPy, SciPy, Matplotlib
+- QuTiP
+- Qiskit (optional, for qubit simulations)
+- MQT modules (optional, for qudit simulations)
+
+### Usage
+
+```bash
+jupyter notebook triplet_triplet_annihilation.ipynb
+```
+
+For detailed theory, refer to `triplet_triplet_annihilation_theory.md`.
+
