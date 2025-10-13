@@ -1,5 +1,7 @@
 # TTA修正の詳細説明と検証
 
+![TTA Fix Comparison](qudit/tutorials/tta_fix_comparison.png)
+
 ## 問題の原因
 
 `qudit/tutorials/triplet_triplet_annihilation.ipynb` において、全ての量子ダイナミクス計算でTTAによる励起一重項状態への遷移が全く起こらなかった根本原因は：
