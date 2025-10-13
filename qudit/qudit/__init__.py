@@ -57,10 +57,11 @@ from .circuit_visualization import (
 
 # Try to import MQT simulator (optional dependency)
 try:
-    from .mqt_simulator import MQTStatevectorSimulator, MQTShotSimulator
+    from .mqt_simulator import MQTSimulator, MQTStatevectorSimulator, MQTShotSimulator
     _MQT_AVAILABLE = True
 except ImportError:
     _MQT_AVAILABLE = False
+    MQTSimulator = None
     MQTStatevectorSimulator = None
     MQTShotSimulator = None
 
@@ -87,7 +88,7 @@ __all__ = [
 
 # Add MQT simulator if available
 if _MQT_AVAILABLE:
-    __all__.extend(['MQTStatevectorSimulator', 'MQTShotSimulator'])
+    __all__.extend(['MQTSimulator', 'MQTStatevectorSimulator', 'MQTShotSimulator'])
 
 # Add MQT circuit converter if available
 if _MQT_CIRCUIT_AVAILABLE:
