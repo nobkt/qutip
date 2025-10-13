@@ -591,3 +591,45 @@ def visualize_bloch_sphere_trajectory(states: List[np.ndarray],
     
     plt.tight_layout()
     return fig, ax if projection == '3d' else axes
+
+
+class CircuitVisualizer:
+    """
+    Visualizer for quantum circuits (compatibility class).
+    
+    This class provides a simple interface for circuit visualization.
+    It wraps the QuditCircuit class and provides convenience methods
+    for visualization.
+    
+    This class is provided for backwards compatibility with code that
+    expects a CircuitVisualizer class. For new code, use QuditCircuit
+    and the standalone visualization functions instead.
+    
+    Parameters
+    ----------
+    num_qudits : int, optional
+        Number of qudits in the circuit. Default is 1.
+        
+    Examples
+    --------
+    >>> visualizer = CircuitVisualizer(num_qudits=1)
+    >>> # Use visualizer methods here
+    """
+    
+    def __init__(self, num_qudits: int = 1):
+        """
+        Initialize the circuit visualizer.
+        
+        Parameters
+        ----------
+        num_qudits : int, optional
+            Number of qudits in the circuit. Default is 1.
+        """
+        self.num_qudits = num_qudits
+        self.circuit = QuditCircuit(num_qudits=num_qudits)
+    
+    def __repr__(self):
+        return f"CircuitVisualizer(num_qudits={self.num_qudits})"
+    
+    def __str__(self):
+        return f"Circuit visualizer for {self.num_qudits} qudit(s)"

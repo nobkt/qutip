@@ -51,6 +51,7 @@ from .statevector_simulator import (
 from .circuit_visualization import (
     QuditCircuit,
     QuditGate,
+    CircuitVisualizer,
     visualize_state_evolution,
     visualize_bloch_sphere_trajectory
 )
@@ -82,6 +83,7 @@ __all__ = [
     'spin_coherent_state',
     'QuditCircuit',
     'QuditGate',
+    'CircuitVisualizer',
     'visualize_state_evolution',
     'visualize_bloch_sphere_trajectory'
 ]
