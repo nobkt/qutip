@@ -1433,9 +1433,9 @@ $$
 
 **累積誤差**:
 
-各ステップの誤差：$O(\Delta t^2) = O(t^2/N^2)$
+各ステップの誤差（局所誤差）：$O(\Delta t^2) = O(t^2/N^2)$
 
-全ステップの累積誤差：$N \times O(t^2/N^2) = O(t^2/N)$
+全ステップの累積誤差（大域誤差）：$N \times O(t^2/N^2) = O(t^2/N) = O(t \cdot \Delta t)$
 
 $\Delta t \to 0$ （$N \to \infty$）の極限で、誤差は0に収束します。
 
@@ -1561,14 +1561,15 @@ $$
 
 4次トロッター分解の誤差：
 
+**局所誤差**（1ステップあたり）:
 $$
 \|U_{\text{exact}}(\Delta t) - U_4(\Delta t)\| = O(\Delta t^5)
 $$
 
-累積誤差（$N$ ステップ）：
+**大域誤差**（$N$ ステップの累積）：
 
 $$
-N \times O(\Delta t^5) = O(t^5/N^4) = O(t \Delta t^4)
+N \times O(\Delta t^5) = O(t \cdot \Delta t^4) = O(t^5/N^4)
 $$
 
 #### 7.4.4 数値例
@@ -1579,11 +1580,11 @@ $$
 - ステップ数: $N = 10$
 - 時間ステップ: $\Delta t = 0.1$ (a.u.)
 
-**誤差の比較**:
+**誤差の比較**（大域誤差）:
 
-- 1次: $O(0.1^2) = O(0.01)$
-- 2次: $O(0.1^3) = O(0.001)$
-- 4次: $O(0.1^5) = O(0.00001)$
+- 1次: $O(t \cdot \Delta t) = O(t^2/N)$ → 例：$O(0.1)$
+- 2次: $O(t \cdot \Delta t^2) = O(t^3/N^2)$ → 例：$O(0.001)$  
+- 4次: $O(t \cdot \Delta t^4) = O(t^5/N^4)$ → 例：$O(0.00001)$
 
 4次分解は2次分解に比べて100倍精度が高くなります。
 
@@ -1721,24 +1722,33 @@ $$
 
 **1次トロッター分解**:
 
+局所誤差：$O(\Delta t^2)$
+
+大域誤差：
 $$
-\text{Error} \propto \Delta t = \frac{t}{N}
+\text{Error} \propto t \cdot \Delta t = \frac{t^2}{N}
 $$
 
 収束のために、$N \propto \frac{1}{\epsilon}$ （$\epsilon$ は目標精度）
 
 **2次トロッター分解**:
 
+局所誤差：$O(\Delta t^3)$
+
+大域誤差：
 $$
-\text{Error} \propto \Delta t^2 = \frac{t^2}{N^2}
+\text{Error} \propto t \cdot \Delta t^2 = \frac{t^3}{N^2}
 $$
 
 収束のために、$N \propto \frac{1}{\sqrt{\epsilon}}$
 
 **4次トロッター分解**:
 
+局所誤差：$O(\Delta t^5)$
+
+大域誤差：
 $$
-\text{Error} \propto \Delta t^4 = \frac{t^4}{N^4}
+\text{Error} \propto t \cdot \Delta t^4 = \frac{t^5}{N^4}
 $$
 
 収束のために、$N \propto \frac{1}{\epsilon^{1/4}}$
@@ -1805,7 +1815,7 @@ $$
 誤差：
 
 $$
-\|U(t) - (U_1(\Delta t))^N\| = O(t/N) = O(\Delta t)
+\|U(t) - (U_1(\Delta t))^N\| = O(t \cdot \Delta t) = O(t^2/N)
 $$
 
 **数値例** ($V = 1$, $\hbar = 1$, $t = \pi/2$):
