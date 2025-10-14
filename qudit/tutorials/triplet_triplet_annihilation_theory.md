@@ -455,376 +455,467 @@ $$
 
 ---
 
-## 6. Qudit表現
+## 6. Qudit表現（Heisenberg-Weyl基底）
 
-### 6.1 Qutrit（3準位量子系）
+### 6.1 Heisenberg-Weyl演算子の定義
 
-Quditは $d$ 準位量子系です。3準位の場合、qutritと呼ばれます。
+Quditは $d$ 準位量子系です。3準位の場合、qutritと呼ばれます。本セクションでは、Gell-Mann行列の代わりに**Heisenberg-Weyl演算子基底**を使用します。この基底は、離散的な位相空間構造を持ち、量子情報処理において自然な表現を提供します。
 
-### 6.2 状態の直接表現
+#### 6.1.1 基本演算子の定義
 
-3準位系を直接3準位quditで表現します：
+d次元Hilbert空間における Heisenberg-Weyl 演算子は、**シフト演算子 (Shift operator)** $X$ と **クロック演算子 (Clock operator)** $Z$ で定義されます。
 
+qutrit（d=3）の場合：
+
+**シフト演算子 $X$**:
 $$
-\begin{aligned}
-|S_0\rangle &\rightarrow |0\rangle_3 \\
-|T_1\rangle &\rightarrow |1\rangle_3 \\
-|S_1\rangle &\rightarrow |2\rangle_3
-\end{aligned}
-$$
-
-### 6.3 3分子系の表現
-
-3分子線形系は3つのqutritで表現されます：
-
-$$
-|X_A X_B X_C\rangle \rightarrow |i\rangle_3 \otimes |j\rangle_3 \otimes |k\rangle_3
+X = \sum_{j=0}^{2} |j \oplus 1\rangle\langle j|
 $$
 
-全状態空間の次元は $3 \times 3 \times 3 = 27$ です。これはqubit表現の64次元に比べて大幅にコンパクトです。
-
-### 6.4 初期状態
-
-初期状態 $|T_1 S_0 T_1\rangle$ は：
+ここで $\oplus$ は mod 3 の加算を表します。明示的には：
 
 $$
-|T_1 S_0 T_1\rangle \rightarrow |1\rangle_3 \otimes |0\rangle_3 \otimes |1\rangle_3 = |101\rangle_3
+X = |1\rangle\langle 0| + |2\rangle\langle 1| + |0\rangle\langle 2|
 $$
 
-3進数表現: $1 \cdot 9 + 0 \cdot 3 + 1 \cdot 1 = 10$ （10進数）
-
-### 6.5 演算子の表現
-
-#### 6.5.1 Gell-Mann行列の詳細
-
-3準位系の演算子は8つのGell-Mann行列 $\{\lambda_1, \ldots, \lambda_8\}$ と恒等行列で表現できます。これらは2準位系のPauli行列の一般化です。
-
-**Gell-Mann行列の定義**:
+行列表現：
 
 $$
-\lambda_1 = \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}, \quad
-\lambda_2 = \begin{pmatrix} 0 & -i & 0 \\ i & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}, \quad
-\lambda_3 = \begin{pmatrix} 1 & 0 & 0 \\ 0 & -1 & 0 \\ 0 & 0 & 0 \end{pmatrix}
-$$
-
-$$
-\lambda_4 = \begin{pmatrix} 0 & 0 & 1 \\ 0 & 0 & 0 \\ 1 & 0 & 0 \end{pmatrix}, \quad
-\lambda_5 = \begin{pmatrix} 0 & 0 & -i \\ 0 & 0 & 0 \\ i & 0 & 0 \end{pmatrix}, \quad
-\lambda_6 = \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 1 \\ 0 & 1 & 0 \end{pmatrix}
-$$
-
-$$
-\lambda_7 = \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & -i \\ 0 & i & 0 \end{pmatrix}, \quad
-\lambda_8 = \frac{1}{\sqrt{3}}\begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & -2 \end{pmatrix}
-$$
-
-**Gell-Mann行列の性質**:
-
-1. **エルミート性**: すべての $\lambda_i$ はエルミート行列です: $\lambda_i^\dagger = \lambda_i$
-
-2. **トレースレス**: $\text{Tr}(\lambda_i) = 0$ for $i = 1, \ldots, 8$
-
-3. **直交性**: 
-$$
-\text{Tr}(\lambda_i \lambda_j) = 2\delta_{ij}
-$$
-
-4. **完全性**: 恒等行列 $I_3$ と合わせて、$3 \times 3$ エルミート行列の完全な基底を形成します
-
-**具体的な検証例**:
-
-$\lambda_1$ のトレースレス性:
-$$
-\text{Tr}(\lambda_1) = 0 + 0 + 0 = 0
-$$
-
-$\lambda_1$ と $\lambda_2$ の直交性:
-$$
-\lambda_1 \lambda_2 = \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} \begin{pmatrix} 0 & -i & 0 \\ i & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} = \begin{pmatrix} i & 0 & 0 \\ 0 & -i & 0 \\ 0 & 0 & 0 \end{pmatrix}
-$$
-
-$$
-\text{Tr}(\lambda_1 \lambda_2) = i - i + 0 = 0 = 2\delta_{12}
-$$
-
-$\lambda_1$ の自己内積:
-$$
-\lambda_1^2 = \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix}
-$$
-
-$$
-\text{Tr}(\lambda_1^2) = 1 + 1 + 0 = 2 = 2\delta_{11}
-$$
-
-#### 6.5.2 射影演算子の構成
-
-qutrit基底状態への射影演算子を明示的に構成します：
-
-**基底ket-bra演算子**:
-
-$$
-\begin{aligned}
-|0\rangle\langle 0| &= \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} \\
-|1\rangle\langle 1| &= \begin{pmatrix} 0 \\ 1 \\ 0 \end{pmatrix} \begin{pmatrix} 0 & 1 & 0 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} \\
-|2\rangle\langle 2| &= \begin{pmatrix} 0 \\ 0 \\ 1 \end{pmatrix} \begin{pmatrix} 0 & 0 & 1 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 1 \end{pmatrix}
-\end{aligned}
-$$
-
-**完全性関係の検証**:
-
-$$
-\sum_{i=0}^{2} |i\rangle\langle i| = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} + \begin{pmatrix} 0 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} + \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 1 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix} = I_3
-$$
-
-**Gell-Mann行列による表現**:
-
-射影演算子はGell-Mann行列の線形結合で表現できます：
-
-$$
-\begin{aligned}
-|0\rangle\langle 0| &= \frac{1}{3}I + \frac{1}{2}\lambda_3 + \frac{1}{2\sqrt{3}}\lambda_8 \\
-|1\rangle\langle 1| &= \frac{1}{3}I - \frac{1}{2}\lambda_3 + \frac{1}{2\sqrt{3}}\lambda_8 \\
-|2\rangle\langle 2| &= \frac{1}{3}I - \frac{1}{\sqrt{3}}\lambda_8
-\end{aligned}
-$$
-
-**検証例** ($|0\rangle\langle 0|$):
-
-$$
-\begin{aligned}
-&\frac{1}{3}\begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix} + \frac{1}{2}\begin{pmatrix} 1 & 0 & 0 \\ 0 & -1 & 0 \\ 0 & 0 & 0 \end{pmatrix} + \frac{1}{2\sqrt{3}} \cdot \frac{1}{\sqrt{3}}\begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & -2 \end{pmatrix} \\
-&= \begin{pmatrix} 1/3 & 0 & 0 \\ 0 & 1/3 & 0 \\ 0 & 0 & 1/3 \end{pmatrix} + \begin{pmatrix} 1/2 & 0 & 0 \\ 0 & -1/2 & 0 \\ 0 & 0 & 0 \end{pmatrix} + \begin{pmatrix} 1/6 & 0 & 0 \\ 0 & 1/6 & 0 \\ 0 & 0 & -1/3 \end{pmatrix} \\
-&= \begin{pmatrix} 1/3 + 1/2 + 1/6 & 0 & 0 \\ 0 & 1/3 - 1/2 + 1/6 & 0 \\ 0 & 0 & 1/3 + 0 - 1/3 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}
-\end{aligned}
-$$
-
-#### 6.5.3 昇降演算子の詳細導出
-
-昇降演算子は異なる準位間の遷移を記述します。
-
-**定義**:
-
-$$
-\begin{aligned}
-X_{01} &= |0\rangle\langle 1| + |1\rangle\langle 0| \\
-X_{12} &= |1\rangle\langle 2| + |2\rangle\langle 1| \\
-X_{02} &= |0\rangle\langle 2| + |2\rangle\langle 0|
-\end{aligned}
-$$
-
-**$X_{01}$ の明示的計算**:
-
-$$
-\begin{aligned}
-X_{01} &= |0\rangle\langle 1| + |1\rangle\langle 0| \\
-&= \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix} \begin{pmatrix} 0 & 1 & 0 \end{pmatrix} + \begin{pmatrix} 0 \\ 1 \\ 0 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \end{pmatrix} \\
-&= \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} + \begin{pmatrix} 0 & 0 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} \\
-&= \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} = \lambda_1
-\end{aligned}
-$$
-
-したがって、$X_{01} = \lambda_1$ です。
-
-**$X_{12}$ の明示的計算**:
-
-$$
-\begin{aligned}
-X_{12} &= |1\rangle\langle 2| + |2\rangle\langle 1| \\
-&= \begin{pmatrix} 0 \\ 1 \\ 0 \end{pmatrix} \begin{pmatrix} 0 & 0 & 1 \end{pmatrix} + \begin{pmatrix} 0 \\ 0 \\ 1 \end{pmatrix} \begin{pmatrix} 0 & 1 & 0 \end{pmatrix} \\
-&= \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 1 \\ 0 & 0 & 0 \end{pmatrix} + \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} \\
-&= \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 1 \\ 0 & 1 & 0 \end{pmatrix} = \lambda_6
-\end{aligned}
-$$
-
-したがって、$X_{12} = \lambda_6$ です。
-
-**$X_{02}$ の明示的計算**:
-
-$$
-\begin{aligned}
-X_{02} &= |0\rangle\langle 2| + |2\rangle\langle 0| \\
-&= \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix} \begin{pmatrix} 0 & 0 & 1 \end{pmatrix} + \begin{pmatrix} 0 \\ 0 \\ 1 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \end{pmatrix} \\
-&= \begin{pmatrix} 0 & 0 & 1 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} + \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 0 \\ 1 & 0 & 0 \end{pmatrix} \\
-&= \begin{pmatrix} 0 & 0 & 1 \\ 0 & 0 & 0 \\ 1 & 0 & 0 \end{pmatrix} = \lambda_4
-\end{aligned}
-$$
-
-したがって、$X_{02} = \lambda_4$ です。
-
-**まとめ**:
-
-$$
-\begin{aligned}
-X_{01} &= |0\rangle\langle 1| + |1\rangle\langle 0| = \lambda_1 \\
-X_{12} &= |1\rangle\langle 2| + |2\rangle\langle 1| = \lambda_6 \\
-X_{02} &= |0\rangle\langle 2| + |2\rangle\langle 0| = \lambda_4
-\end{aligned}
-$$
-
-**作用の検証** ($X_{01}$ が $|1\rangle$ に作用):
-
-$$
-X_{01} |1\rangle = \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} \begin{pmatrix} 0 \\ 1 \\ 0 \end{pmatrix} = \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix} = |0\rangle
-$$
-
-$$
-X_{01} |0\rangle = \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix} = \begin{pmatrix} 0 \\ 1 \\ 0 \end{pmatrix} = |1\rangle
-$$
-
-これは、$X_{01}$ が準位0と1の間の遷移を引き起こすことを示しています。
-
-### 6.5 エネルギー移動ハミルトニアンのQudit表現
-
-#### 6.5.1 状態マッピングの明確化
-
-まず、物理状態とqutrit準位のマッピングを再確認します：
-
-$$
-\begin{aligned}
-|S_0\rangle &\rightarrow |0\rangle_3 \\
-|T_1\rangle &\rightarrow |1\rangle_3 \\
-|S_1\rangle &\rightarrow |2\rangle_3
-\end{aligned}
-$$
-
-#### 6.5.2 A-B間のエネルギー移動ハミルトニアン
-
-エネルギー移動過程：$|T_1 S_0 *\rangle \leftrightarrow |S_0 T_1 *\rangle$
-
-Qudit表現では：$|1 0 *\rangle_3 \leftrightarrow |0 1 *\rangle_3$
-
-**ハミルトニアンの構成**:
-
-$$
-H_{\text{ET}}^{AB} = V_{\text{ET}} \sum_c (|1 0 c\rangle\langle 0 1 c| + |0 1 c\rangle\langle 1 0 c|)
-$$
-
-ここで $c \in \{0, 1, 2\}$ は分子Cの状態です。
-
-**単一quditでの演算子表現**:
-
-遷移 $|1\rangle_A \leftrightarrow |0\rangle_A$ と $|0\rangle_B \leftrightarrow |1\rangle_B$ を同時に行う必要があります：
-
-$$
-H_{\text{ET}}^{AB} = V_{\text{ET}} X_{01}^{(A)} \otimes X_{01}^{(B)} \otimes I^{(C)}
-$$
-
-ここで $X_{01} = |0\rangle\langle 1| + |1\rangle\langle 0| = \lambda_1$ です。
-
-**展開形式**:
-
-$$
-\begin{aligned}
-H_{\text{ET}}^{AB} &= V_{\text{ET}} \lambda_1^{(A)} \otimes \lambda_1^{(B)} \otimes I^{(C)} \\
-&= V_{\text{ET}} \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}^{(A)} \otimes \begin{pmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}^{(B)} \otimes I_3^{(C)}
-\end{aligned}
-$$
-
-**行列要素の具体例**:
-
-状態 $|1 0 c\rangle$ から $|0 1 c\rangle$ への遷移行列要素（$c = 0$ の場合）：
-
-$$
-\begin{aligned}
-\langle 0 1 0| H_{\text{ET}}^{AB} |1 0 0\rangle &= V_{\text{ET}} \langle 0| X_{01}^{(A)} |1\rangle \cdot \langle 1| X_{01}^{(B)} |0\rangle \cdot \langle 0|I^{(C)}|0\rangle \\
-&= V_{\text{ET}} \cdot 1 \cdot 1 \cdot 1 \\
-&= V_{\text{ET}}
-\end{aligned}
-$$
-
-逆方向の遷移：
-
-$$
-\begin{aligned}
-\langle 1 0 0| H_{\text{ET}}^{AB} |0 1 0\rangle &= V_{\text{ET}} \langle 1| X_{01}^{(A)} |0\rangle \cdot \langle 0| X_{01}^{(B)} |1\rangle \cdot \langle 0|I^{(C)}|0\rangle \\
-&= V_{\text{ET}} \cdot 1 \cdot 1 \cdot 1 \\
-&= V_{\text{ET}}
-\end{aligned}
-$$
-
-これにより、$|1 0 0\rangle$ と $|0 1 0\rangle$ の間にエネルギー $V_{\text{ET}}$ の結合があることが確認されます。
-
-#### 6.5.3 B-C間のエネルギー移動ハミルトニアン
-
-エネルギー移動過程：$|* S_0 T_1\rangle \leftrightarrow |* T_1 S_0\rangle$
-
-Qudit表現では：$|* 0 1\rangle_3 \leftrightarrow |* 1 0\rangle_3$
-
-**ハミルトニアンの構成**:
-
-$$
-H_{\text{ET}}^{BC} = V_{\text{ET}} \sum_a (|a 0 1\rangle\langle a 1 0| + |a 1 0\rangle\langle a 0 1|)
-$$
-
-**演算子表現**:
-
-$$
-H_{\text{ET}}^{BC} = V_{\text{ET}} I^{(A)} \otimes X_{01}^{(B)} \otimes X_{01}^{(C)}
-$$
-
-#### 6.5.4 自由ハミルトニアンのQudit表現
-
-各分子の自由ハミルトニアン：
-
-$$
-H_A = H_B = H_C = \begin{pmatrix}
-0 & 0 & 0 \\
-0 & E_T & 0 \\
-0 & 0 & E_S
+X = \begin{pmatrix}
+0 & 0 & 1 \\
+1 & 0 & 0 \\
+0 & 1 & 0
 \end{pmatrix}
 $$
 
-これは対角行列であり、Gell-Mann行列で表現すると：
-
-$$
-H_A = E_T |1\rangle\langle 1| + E_S |2\rangle\langle 2|
-$$
-
-Gell-Mann行列による表現：
-
+**作用の検証**:
 $$
 \begin{aligned}
-|1\rangle\langle 1| &= \frac{1}{3}I - \frac{1}{2}\lambda_3 + \frac{1}{2\sqrt{3}}\lambda_8 \\
-|2\rangle\langle 2| &= \frac{1}{3}I - \frac{1}{\sqrt{3}}\lambda_8
+X|0\rangle &= |1\rangle \\
+X|1\rangle &= |2\rangle \\
+X|2\rangle &= |0\rangle
 \end{aligned}
+$$
+
+**クロック演算子 $Z$**:
+$$
+Z = \sum_{j=0}^{2} \omega^j |j\rangle\langle j|
+$$
+
+ここで $\omega = e^{2\pi i/3}$ は3次の単位根です。明示的には：
+
+$$
+\omega = e^{2\pi i/3} = \cos\frac{2\pi}{3} + i\sin\frac{2\pi}{3} = -\frac{1}{2} + i\frac{\sqrt{3}}{2}
+$$
+
+$$
+\omega^2 = e^{4\pi i/3} = \cos\frac{4\pi}{3} + i\sin\frac{4\pi}{3} = -\frac{1}{2} - i\frac{\sqrt{3}}{2}
+$$
+
+$$
+\omega^3 = e^{2\pi i} = 1
 $$
 
 したがって：
 
 $$
+Z = |0\rangle\langle 0| + \omega|1\rangle\langle 1| + \omega^2|2\rangle\langle 2|
+$$
+
+行列表現：
+
+$$
+Z = \begin{pmatrix}
+1 & 0 & 0 \\
+0 & \omega & 0 \\
+0 & 0 & \omega^2
+\end{pmatrix} = \begin{pmatrix}
+1 & 0 & 0 \\
+0 & e^{2\pi i/3} & 0 \\
+0 & 0 & e^{4\pi i/3}
+\end{pmatrix}
+$$
+
+**作用の検証**:
+$$
 \begin{aligned}
-H_A &= E_T \left(\frac{1}{3}I - \frac{1}{2}\lambda_3 + \frac{1}{2\sqrt{3}}\lambda_8\right) + E_S \left(\frac{1}{3}I - \frac{1}{\sqrt{3}}\lambda_8\right) \\
-&= \frac{E_T + E_S}{3}I - \frac{E_T}{2}\lambda_3 + \left(\frac{E_T}{2\sqrt{3}} - \frac{E_S}{\sqrt{3}}\right)\lambda_8
+Z|0\rangle &= |0\rangle \\
+Z|1\rangle &= \omega|1\rangle \\
+Z|2\rangle &= \omega^2|2\rangle
 \end{aligned}
 $$
 
-**簡略化**: エネルギーゼロ点を調整して定数項を除去すると：
+#### 6.1.2 基本演算子の性質
 
-$$
-H_A = -\frac{E_T}{2}\lambda_3 + \left(\frac{E_T}{2\sqrt{3}} - \frac{E_S}{\sqrt{3}}\right)\lambda_8
-$$
+**周期性**:
 
-または、より直接的に対角行列として：
-
+$X$ のべき乗：
 $$
-H_A = \text{diag}(0, E_T, E_S)
-$$
-
-全系の自由ハミルトニアン：
-
-$$
-H_0 = H_A \otimes I_B \otimes I_C + I_A \otimes H_B \otimes I_C + I_A \otimes I_B \otimes H_C
+\begin{aligned}
+X^0 &= I \\
+X^1 &= X \\
+X^2 &= \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 1 \\ 1 & 0 & 0 \end{pmatrix} \\
+X^3 &= I
+\end{aligned}
 $$
 
-### 6.6 TTAリンドブラッド演算子のQudit表現
+検証：
+$$
+X^2 = X \cdot X = \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} = \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 1 \\ 1 & 0 & 0 \end{pmatrix}
+$$
 
-#### 6.6.1 A-B間のTTA過程
+$$
+X^3 = X \cdot X^2 = \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 1 \\ 1 & 0 & 0 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix} = I
+$$
+
+$Z$ のべき乗：
+$$
+\begin{aligned}
+Z^0 &= I \\
+Z^1 &= Z \\
+Z^2 &= \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega^2 & 0 \\ 0 & 0 & \omega^4 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega^2 & 0 \\ 0 & 0 & \omega \end{pmatrix} \\
+Z^3 &= I
+\end{aligned}
+$$
+
+（$\omega^4 = \omega^3 \cdot \omega = 1 \cdot \omega = \omega$ を使用）
+
+**ユニタリ性**:
+
+$X$ のユニタリ性：
+$$
+X^\dagger X = \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 1 \\ 1 & 0 & 0 \end{pmatrix} \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix} = I
+$$
+
+注意：$X^\dagger = X^2$ （$X^3 = I$ より）
+
+$Z$ のユニタリ性：
+$$
+Z^\dagger Z = \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega^* & 0 \\ 0 & 0 & (\omega^2)^* \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega & 0 \\ 0 & 0 & \omega^2 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix} = I
+$$
+
+ここで $\omega^* = \omega^2$ （$\omega\omega^* = |\omega|^2 = 1$ より $\omega^* = 1/\omega = \omega^2$）
+
+**Weyl関係式（交換関係）**:
+
+Heisenberg-Weyl演算子の核心となる性質は、次の交換関係です：
+
+$$
+ZX = \omega XZ
+$$
+
+**証明**：
+
+左辺：
+$$
+ZX = \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega & 0 \\ 0 & 0 & \omega^2 \end{pmatrix} \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 1 \\ \omega & 0 & 0 \\ 0 & \omega^2 & 0 \end{pmatrix}
+$$
+
+右辺：
+$$
+\omega XZ = \omega \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega & 0 \\ 0 & 0 & \omega^2 \end{pmatrix} = \omega \begin{pmatrix} 0 & 0 & \omega^2 \\ 1 & 0 & 0 \\ 0 & \omega & 0 \end{pmatrix} = \begin{pmatrix} 0 & 0 & \omega^3 \\ \omega & 0 & 0 \\ 0 & \omega^2 & 0 \end{pmatrix}
+$$
+
+$\omega^3 = 1$ より：
+$$
+\omega XZ = \begin{pmatrix} 0 & 0 & 1 \\ \omega & 0 & 0 \\ 0 & \omega^2 & 0 \end{pmatrix} = ZX
+$$
+
+よって $ZX = \omega XZ$ が成立します。
+
+**一般化されたWeyl関係式**：
+
+$$
+Z^k X^l = \omega^{kl} X^l Z^k
+$$
+
+証明（帰納法による）：$k=1, l=1$ の場合は上記で示しました。一般の場合も同様に示せます。
+
+#### 6.1.3 Heisenberg-Weyl演算子基底
+
+Heisenberg-Weyl演算子の完全集合は以下で与えられます：
+
+$$
+W_{k,l} = \omega^{kl/2} X^k Z^l, \quad k, l \in \{0, 1, 2\}
+$$
+
+位相因子 $\omega^{kl/2}$ は対称化のために導入されます（慣習により省略されることもあります）。
+
+**基底の完全性**：
+
+これら9つの演算子 $\{W_{k,l}\}$ （$k, l = 0, 1, 2$）は、$3 \times 3$ 複素行列空間の正規直交基底を形成します。
+
+**直交性**：
+
+$$
+\text{Tr}(W_{k,l}^\dagger W_{k',l'}) = 3\delta_{k,k'}\delta_{l,l'}
+$$
+
+**完全性**：
+
+任意の $3 \times 3$ 行列 $A$ は以下のように展開できます：
+
+$$
+A = \frac{1}{3}\sum_{k,l=0}^{2} \text{Tr}(A W_{k,l}^\dagger) W_{k,l}
+$$
+
+#### 6.1.4 物理的演算子の構成
+
+Heisenberg-Weyl基底を使用して、物理的に意味のある演算子を構成します。
+
+**射影演算子**：
+
+基底状態への射影演算子は以下のように表現できます：
+
+$$
+|j\rangle\langle j| = \frac{1}{3}\sum_{l=0}^{2} \omega^{-jl} Z^l
+$$
+
+**証明**（$j=0$ の場合）：
+
+$$
+\begin{aligned}
+\frac{1}{3}\sum_{l=0}^{2} Z^l &= \frac{1}{3}(I + Z + Z^2) \\
+&= \frac{1}{3}\left[\begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{pmatrix} + \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega & 0 \\ 0 & 0 & \omega^2 \end{pmatrix} + \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega^2 & 0 \\ 0 & 0 & \omega \end{pmatrix}\right] \\
+&= \frac{1}{3}\begin{pmatrix} 3 & 0 & 0 \\ 0 & 1+\omega+\omega^2 & 0 \\ 0 & 0 & 1+\omega^2+\omega \end{pmatrix}
+\end{aligned}
+$$
+
+3次の単位根の性質 $1 + \omega + \omega^2 = 0$ より：
+
+$$
+\frac{1}{3}(I + Z + Z^2) = \frac{1}{3}\begin{pmatrix} 3 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} = \begin{pmatrix} 1 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} = |0\rangle\langle 0|
+$$
+
+同様に：
+
+$$
+|1\rangle\langle 1| = \frac{1}{3}\sum_{l=0}^{2} \omega^{-l} Z^l = \frac{1}{3}(I + \omega^2 Z + \omega Z^2)
+$$
+
+$$
+|2\rangle\langle 2| = \frac{1}{3}\sum_{l=0}^{2} \omega^{-2l} Z^l = \frac{1}{3}(I + \omega Z + \omega^2 Z^2)
+$$
+
+**遷移演算子**：
+
+状態 $|j\rangle$ から $|k\rangle$ への遷移演算子：
+
+$$
+|k\rangle\langle j| = \frac{1}{3} X^{k-j} \sum_{l=0}^{2} \omega^{-jl} Z^l
+$$
+
+特に重要な遷移演算子：
+
+**$|1\rangle\langle 0|$ (S₀ → T₁ 遷移)**：
+$$
+\begin{aligned}
+|1\rangle\langle 0| &= X|0\rangle\langle 0| \\
+&= X \cdot \frac{1}{3}(I + Z + Z^2) \\
+&= \frac{1}{3}(X + XZ + XZ^2)
+\end{aligned}
+$$
+
+明示的に計算：
+$$
+\begin{aligned}
+XZ &= \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega & 0 \\ 0 & 0 & \omega^2 \end{pmatrix} = \begin{pmatrix} 0 & 0 & \omega^2 \\ 1 & 0 & 0 \\ 0 & \omega & 0 \end{pmatrix}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+XZ^2 &= \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} \begin{pmatrix} 1 & 0 & 0 \\ 0 & \omega^2 & 0 \\ 0 & 0 & \omega \end{pmatrix} = \begin{pmatrix} 0 & 0 & \omega \\ 1 & 0 & 0 \\ 0 & \omega^2 & 0 \end{pmatrix}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+|1\rangle\langle 0| &= \frac{1}{3}\left[\begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix} + \begin{pmatrix} 0 & 0 & \omega^2 \\ 1 & 0 & 0 \\ 0 & \omega & 0 \end{pmatrix} + \begin{pmatrix} 0 & 0 & \omega \\ 1 & 0 & 0 \\ 0 & \omega^2 & 0 \end{pmatrix}\right] \\
+&= \frac{1}{3}\begin{pmatrix} 0 & 0 & 1+\omega+\omega^2 \\ 3 & 0 & 0 \\ 0 & 1+\omega+\omega^2 & 0 \end{pmatrix} \\
+&= \frac{1}{3}\begin{pmatrix} 0 & 0 & 0 \\ 3 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}
+\end{aligned}
+$$
+
+これは確かに $|1\rangle\langle 0|$ です。
+
+**$|0\rangle\langle 1|$ (T₁ → S₀ 遷移)**：
+$$
+|0\rangle\langle 1| = (|1\rangle\langle 0|)^\dagger = \frac{1}{3}(X^\dagger + Z^\dagger X^\dagger + Z^{2\dagger} X^\dagger)
+$$
+
+$X^\dagger = X^2$, $Z^\dagger = Z^2$ より：
+$$
+|0\rangle\langle 1| = \frac{1}{3}(X^2 + Z^2 X^2 + Z X^2)
+$$
+
+**$|2\rangle\langle 1|$ (T₁ → S₁ 遷移)**：
+$$
+|2\rangle\langle 1| = X|1\rangle\langle 1|
+$$
+
+**$|1\rangle\langle 2|$ (S₁ → T₁ 遷移)**：
+$$
+|1\rangle\langle 2| = (|2\rangle\langle 1|)^\dagger
+$$
+
+**エルミート遷移演算子（実際の物理過程）**：
+
+可逆的な遷移過程は、エルミート演算子で記述されます：
+
+$$
+X_{01} = |0\rangle\langle 1| + |1\rangle\langle 0|
+$$
+
+Heisenberg-Weyl基底では：
+$$
+X_{01} = \frac{1}{3}[(X + XZ + XZ^2) + (X^2 + Z^2 X^2 + Z X^2)]
+$$
+
+$$
+= \frac{1}{3}[X + X^2 + XZ + Z^2X^2 + XZ^2 + ZX^2]
+$$
+
+同様に：
+$$
+X_{12} = |1\rangle\langle 2| + |2\rangle\langle 1|
+$$
+
+### 6.2 3分子系の表現
+
+3分子線形系は3つのqutritで表現されます：
+
+$$
+|\psi\rangle = |\psi_A\rangle \otimes |\psi_B\rangle \otimes |\psi_C\rangle
+$$
+
+各分子の状態は以下のように対応します：
+
+$$
+\begin{aligned}
+|S_0\rangle &\rightarrow |0\rangle_3 \\
+|T_1\rangle &\rightarrow |1\rangle_3 \\
+|S_1\rangle &\rightarrow |2\rangle_3
+\end{aligned}
+$$
+
+全状態空間の次元は $3 \times 3 \times 3 = 27$ です。
+
+**初期状態**：
+
+初期状態 $|T_1 S_0 T_1\rangle$ は：
+
+$$
+|\psi(0)\rangle = |1\rangle_3 \otimes |0\rangle_3 \otimes |1\rangle_3 = |101\rangle_3
+$$
+
+### 6.3 ハミルトニアンの構成
+
+#### 6.3.1 自由ハミルトニアン
+
+各分子の自由ハミルトニアンは、対角行列として表現されます：
+
+$$
+H_{\text{free}} = E_{T_1} |1\rangle\langle 1| + E_{S_1} |2\rangle\langle 2|
+$$
+
+Heisenberg-Weyl基底では：
+
+$$
+H_{\text{free}} = E_{T_1} \cdot \frac{1}{3}(I + \omega^2 Z + \omega Z^2) + E_{S_1} \cdot \frac{1}{3}(I + \omega Z + \omega^2 Z^2)
+$$
+
+$$
+= \frac{E_{T_1} + E_{S_1}}{3}I + \frac{E_{T_1}\omega^2 + E_{S_1}\omega}{3}Z + \frac{E_{T_1}\omega + E_{S_1}\omega^2}{3}Z^2
+$$
+
+3分子系の全自由ハミルトニアン：
+
+$$
+H_0 = H_{\text{free}}^{(A)} \otimes I^{(B)} \otimes I^{(C)} + I^{(A)} \otimes H_{\text{free}}^{(B)} \otimes I^{(C)} + I^{(A)} \otimes I^{(B)} \otimes H_{\text{free}}^{(C)}
+$$
+
+#### 6.3.2 A-B間のエネルギー移動ハミルトニアン
+
+エネルギー移動過程：$|T_1 S_0 *\rangle \leftrightarrow |S_0 T_1 *\rangle$
+
+物理的には、$|1 0 c\rangle \leftrightarrow |0 1 c\rangle$ の遷移です。
+
+**ハミルトニアンの構成**：
+
+$$
+H_{\text{ET}}^{AB} = V_{\text{ET}} \sum_c (|0 1 c\rangle\langle 1 0 c| + |1 0 c\rangle\langle 0 1 c|)
+$$
+
+これは以下のように因子化できます：
+
+$$
+H_{\text{ET}}^{AB} = V_{\text{ET}} X_{01}^{(A)} \otimes X_{01}^{(B)} \otimes I^{(C)}
+$$
+
+ここで：
+
+$$
+X_{01}^{(A)} = |0\rangle\langle 1|^{(A)} + |1\rangle\langle 0|^{(A)}
+$$
+
+Heisenberg-Weyl基底では：
+
+$$
+X_{01}^{(A)} = \frac{1}{3}[(X + XZ + XZ^2) + (X^2 + Z^2 X^2 + Z X^2)]^{(A)}
+$$
+
+$$
+= \frac{1}{3}[X + X^2 + XZ + Z^2X^2 + XZ^2 + ZX^2]^{(A)}
+$$
+
+したがって：
+
+$$
+H_{\text{ET}}^{AB} = \frac{V_{\text{ET}}}{9} \sum_{m,n} [X + X^2 + \ldots]_m^{(A)} [X + X^2 + \ldots]_n^{(B)} \otimes I^{(C)}
+$$
+
+ここで $[\ldots]_m$ と $[\ldots]_n$ はそれぞれ $X_{01}^{(A)}$ と $X_{01}^{(B)}$ の項を表します。
+
+**展開形式**（完全な数式）：
+
+$$
+\begin{aligned}
+H_{\text{ET}}^{AB} = \frac{V_{\text{ET}}}{9} \bigg[
+&(X^{(A)} + X^{2(A)} + X^{(A)}Z^{(A)} + Z^{2(A)}X^{2(A)} + X^{(A)}Z^{2(A)} + Z^{(A)}X^{2(A)}) \\
+&\otimes (X^{(B)} + X^{2(B)} + X^{(B)}Z^{(B)} + Z^{2(B)}X^{2(B)} + X^{(B)}Z^{2(B)} + Z^{(B)}X^{2(B)}) \\
+&\otimes I^{(C)}
+\bigg]
+\end{aligned}
+$$
+
+これは36項のテンソル積の和となります。
+
+**数値計算用の簡略表現**：
+
+実装では、以下のように計算できます：
+
+1. $X_{01}^{(A)}$ を数値的に構成
+2. $X_{01}^{(B)}$ を数値的に構成  
+3. テンソル積 $X_{01}^{(A)} \otimes X_{01}^{(B)} \otimes I^{(C)}$ を計算
+
+#### 6.3.3 B-C間のエネルギー移動ハミルトニアン
+
+同様に：
+
+$$
+H_{\text{ET}}^{BC} = V_{\text{ET}} I^{(A)} \otimes X_{01}^{(B)} \otimes X_{01}^{(C)}
+$$
+
+### 6.4 リンドブラッド演算子の構成
+
+#### 6.4.1 A-B間のTTA過程
 
 物理過程：$|T_1 T_1 *\rangle \rightarrow |S_1 S_0 *\rangle$ または $|S_0 S_1 *\rangle$
 
-Qudit表現：$|1 1 *\rangle_3 \rightarrow |2 0 *\rangle_3$ または $|0 2 *\rangle_3$
+すなわち：$|1 1 c\rangle \rightarrow |2 0 c\rangle$ または $|0 2 c\rangle$
 
-**リンドブラッド演算子の定義**:
+**リンドブラッド演算子**：
 
 $$
 L_{\text{TTA}}^{AB,1} = \sqrt{\gamma_{\text{TTA}}} \sum_c |2 0 c\rangle\langle 1 1 c|
@@ -834,470 +925,198 @@ $$
 L_{\text{TTA}}^{AB,2} = \sqrt{\gamma_{\text{TTA}}} \sum_c |0 2 c\rangle\langle 1 1 c|
 $$
 
-**演算子の明示的表現** ($L_{\text{TTA}}^{AB,1}$):
+因子化：
 
 $$
-\begin{aligned}
-|2 0 c\rangle\langle 1 1 c| &= (|2\rangle\langle 1|)^{(A)} \otimes (|0\rangle\langle 1|)^{(B)} \otimes (|c\rangle\langle c|)^{(C)}
-\end{aligned}
+L_{\text{TTA}}^{AB,1} = \sqrt{\gamma_{\text{TTA}}} (|2\rangle\langle 1|)^{(A)} \otimes (|0\rangle\langle 1|)^{(B)} \otimes I^{(C)}
 $$
 
-和を取ると：
-
-$$
-\begin{aligned}
-L_{\text{TTA}}^{AB,1} &= \sqrt{\gamma_{\text{TTA}}} (|2\rangle\langle 1|)^{(A)} \otimes (|0\rangle\langle 1|)^{(B)} \otimes I^{(C)} \\
-&= \sqrt{\gamma_{\text{TTA}}} L_{21}^{(A)} \otimes L_{01}^{(B)} \otimes I^{(C)}
-\end{aligned}
-$$
-
-ここで：
-
-$$
-L_{21}^{(A)} = |2\rangle\langle 1|^{(A)} = \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix}
-$$
-
-$$
-L_{01}^{(B)} = |0\rangle\langle 1|^{(B)} = \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}
-$$
-
-**Gell-Mann行列による表現**:
-
-$$
-\begin{aligned}
-|2\rangle\langle 1| &= \frac{1}{2}(\lambda_6 - i\lambda_7) \\
-|0\rangle\langle 1| &= \frac{1}{2}(\lambda_1 - i\lambda_2)
-\end{aligned}
-$$
-
-**リンドブラッド演算子の作用例** ($c = 0$):
-
-状態 $|1 1 0\rangle$ に対して：
-
-$$
-\begin{aligned}
-L_{\text{TTA}}^{AB,1} |1 1 0\rangle &= \sqrt{\gamma_{\text{TTA}}} (|2\rangle\langle 1|)^{(A)} \otimes (|0\rangle\langle 1|)^{(B)} \otimes I^{(C)} \cdot |1\rangle^{(A)} \otimes |1\rangle^{(B)} \otimes |0\rangle^{(C)} \\
-&= \sqrt{\gamma_{\text{TTA}}} |2\rangle^{(A)} \cdot \langle 1|1\rangle^{(A)} \otimes |0\rangle^{(B)} \cdot \langle 1|1\rangle^{(B)} \otimes |0\rangle^{(C)} \\
-&= \sqrt{\gamma_{\text{TTA}}} |2\rangle^{(A)} \otimes |0\rangle^{(B)} \otimes |0\rangle^{(C)} \\
-&= \sqrt{\gamma_{\text{TTA}}} |2 0 0\rangle
-\end{aligned}
-$$
-
-これは、状態 $|T_1 T_1 S_0\rangle = |1 1 0\rangle$ が状態 $|S_1 S_0 S_0\rangle = |2 0 0\rangle$ に遷移することを示しています。
-
-**演算子の明示的表現** ($L_{\text{TTA}}^{AB,2}$):
-
-同様に：
-
-$$
-\begin{aligned}
-L_{\text{TTA}}^{AB,2} &= \sqrt{\gamma_{\text{TTA}}} (|0\rangle\langle 1|)^{(A)} \otimes (|2\rangle\langle 1|)^{(B)} \otimes I^{(C)} \\
-&= \sqrt{\gamma_{\text{TTA}}} L_{01}^{(A)} \otimes L_{21}^{(B)} \otimes I^{(C)}
-\end{aligned}
-$$
-
-ここで：
-
-$$
-L_{01}^{(A)} = |0\rangle\langle 1|^{(A)} = \begin{pmatrix} 0 & 1 & 0 \\ 0 & 0 & 0 \\ 0 & 0 & 0 \end{pmatrix}
-$$
-
-$$
-L_{21}^{(B)} = |2\rangle\langle 1|^{(B)} = \begin{pmatrix} 0 & 0 & 0 \\ 0 & 0 & 0 \\ 0 & 1 & 0 \end{pmatrix}
-$$
-
-#### 6.6.2 B-C間のTTA過程
-
-物理過程：$|* T_1 T_1\rangle \rightarrow |* S_1 S_0\rangle$ または $|* S_0 S_1\rangle$
-
-Qudit表現：$|* 1 1\rangle_3 \rightarrow |* 2 0\rangle_3$ または $|* 0 2\rangle_3$
-
-**リンドブラッド演算子の定義**:
-
-$$
-L_{\text{TTA}}^{BC,1} = \sqrt{\gamma_{\text{TTA}}} \sum_a |a 2 0\rangle\langle a 1 1|
-$$
-
-$$
-L_{\text{TTA}}^{BC,2} = \sqrt{\gamma_{\text{TTA}}} \sum_a |a 0 2\rangle\langle a 1 1|
-$$
-
-**演算子表現**:
-
-$$
-\begin{aligned}
-L_{\text{TTA}}^{BC,1} &= \sqrt{\gamma_{\text{TTA}}} I^{(A)} \otimes (|2\rangle\langle 1|)^{(B)} \otimes (|0\rangle\langle 1|)^{(C)} \\
-L_{\text{TTA}}^{BC,2} &= \sqrt{\gamma_{\text{TTA}}} I^{(A)} \otimes (|0\rangle\langle 1|)^{(B)} \otimes (|2\rangle\langle 1|)^{(C)}
-\end{aligned}
-$$
-
-#### 6.6.3 リンドブラッドマスター方程式の完全な形
-
-密度演算子 $\rho$ の時間発展：
-
-$$
-\frac{d\rho}{dt} = -\frac{i}{\hbar}[H, \rho] + \sum_{k=1}^{4} \left(L_k \rho L_k^\dagger - \frac{1}{2}\{L_k^\dagger L_k, \rho\}\right)
-$$
-
-ここで：
-
-- $H = H_0 + H_{\text{ET}}^{AB} + H_{\text{ET}}^{BC}$ （可逆的項）
-- $L_1 = L_{\text{TTA}}^{AB,1}$
-- $L_2 = L_{\text{TTA}}^{AB,2}$
-- $L_3 = L_{\text{TTA}}^{BC,1}$
-- $L_4 = L_{\text{TTA}}^{BC,2}$
-
-**散逸項の展開** ($k = 1$ の項):
-
-$$
-\begin{aligned}
-\mathcal{D}[L_1]\rho &= L_1 \rho L_1^\dagger - \frac{1}{2}\{L_1^\dagger L_1, \rho\} \\
-&= L_1 \rho L_1^\dagger - \frac{1}{2}L_1^\dagger L_1 \rho - \frac{1}{2}\rho L_1^\dagger L_1
-\end{aligned}
-$$
-
-**$L_1^\dagger L_1$ の計算**:
-
-$$
-\begin{aligned}
-L_1^\dagger L_1 &= \left(\sqrt{\gamma_{\text{TTA}}} L_{21}^{(A)} \otimes L_{01}^{(B)} \otimes I^{(C)}\right)^\dagger \left(\sqrt{\gamma_{\text{TTA}}} L_{21}^{(A)} \otimes L_{01}^{(B)} \otimes I^{(C)}\right) \\
-&= \gamma_{\text{TTA}} (L_{21}^{(A)})^\dagger L_{21}^{(A)} \otimes (L_{01}^{(B)})^\dagger L_{01}^{(B)} \otimes I^{(C)} \\
-&= \gamma_{\text{TTA}} (|1\rangle\langle 2| \cdot |2\rangle\langle 1|)^{(A)} \otimes (|1\rangle\langle 0| \cdot |0\rangle\langle 1|)^{(B)} \otimes I^{(C)} \\
-&= \gamma_{\text{TTA}} |1\rangle\langle 1|^{(A)} \otimes |1\rangle\langle 1|^{(B)} \otimes I^{(C)}
-\end{aligned}
-$$
-
-これは、状態 $|1 1 *\rangle$ （つまり $|T_1 T_1 *\rangle$）への射影演算子です。
-
-**物理的解釈**: 
-
-散逸項の第2、3項（反交換子項）は、状態 $|T_1 T_1 *\rangle$ からの確率流出を表現します。第1項（$L_1 \rho L_1^\dagger$）は、状態 $|S_1 S_0 *\rangle$ への確率流入を表現します。
-
-### 6.7 量子回路による実装
-
-#### 6.7.1 Qudit回路
-
-Quditゲートは3準位系に作用する一般的なユニタリ演算子です：
-
-$$
-U \in SU(3)
-$$
-
-#### 6.7.2 基本ゲート
-
-- **Xゲート**: $|0\rangle \leftrightarrow |1\rangle$ （$X_{01} = \lambda_1$ に対応）
-- **X₁₂ゲート**: $|1\rangle \leftrightarrow |2\rangle$ （$X_{12} = \lambda_6$ に対応）
-- **X₀₂ゲート**: $|0\rangle \leftrightarrow |2\rangle$ （$X_{02} = \lambda_4$ に対応）
-- **位相ゲート**: 対角ユニタリ演算子
-
-#### 6.7.3 2-quditゲート
-
-2つのqutrit間の相互作用を表現するゲート：
-
-$$
-U_{AB} \in SU(9)
-$$
-
-#### 6.7.4 ハミルトニアンからゲートへの変換
-
-時間発展演算子 $U(t) = e^{-iHt}$ をゲート列に分解します。
-
-**エネルギー移動ゲート**:
-
-$$
-U_{\text{ET}}^{AB}(\Delta t) = e^{-iH_{\text{ET}}^{AB}\Delta t} = e^{-iV_{\text{ET}}\Delta t \cdot X_{01}^{(A)} \otimes X_{01}^{(B)} \otimes I^{(C)}}
-$$
-
-このゲートは2-qudit制御ゲートとして実装できます。
-
-**具体的な実装**: $X_{01} \otimes X_{01}$ ゲート
-
-このゲートは、qutrit A と qutrit B の両方に同時に $X_{01}$ を作用させる2-quditゲートです。MQTライブラリでは、このようなテンソル積ゲートを直接実装できます。
-
-### 6.8 初期状態の詳細表現
-
-#### 6.8.1 Qudit基底での初期状態
-
-物理的初期状態：$|T_1 S_0 T_1\rangle$
-
-Qudit表現：$|\psi(0)\rangle = |1 0 1\rangle_3$
-
-**テンソル積展開**:
-
-$$
-\begin{aligned}
-|1 0 1\rangle_3 &= |1\rangle_3^{(A)} \otimes |0\rangle_3^{(B)} \otimes |1\rangle_3^{(C)} \\
-&= \begin{pmatrix} 0 \\ 1 \\ 0 \end{pmatrix}^{(A)} \otimes \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix}^{(B)} \otimes \begin{pmatrix} 0 \\ 1 \\ 0 \end{pmatrix}^{(C)}
-\end{aligned}
-$$
-
-**27次元ベクトル表現**:
-
-3つのqutritの状態は、27次元のベクトル空間で表現されます。基底の順序を $(i, j, k)$ （$i, j, k \in \{0, 1, 2\}$）とすると、インデックスは $n = 9i + 3j + k$ で計算されます。
-
-初期状態 $|1 0 1\rangle$ のインデックス：
-
-$$
-n = 9 \cdot 1 + 3 \cdot 0 + 1 = 10
-$$
-
-したがって、27次元ベクトルの第10要素（0-indexed）が1で、他はすべて0です：
-
-$$
-|\psi(0)\rangle = \begin{pmatrix} 0 \\ 0 \\ \vdots \\ 0 \\ 1 \\ 0 \\ \vdots \\ 0 \end{pmatrix}_{27 \times 1}
-$$
-
-ここで、第10要素（0-indexed）が1です。
-
-#### 6.8.2 密度演算子表現
-
-純粋状態の密度演算子：
-
-$$
-\rho(0) = |\psi(0)\rangle\langle\psi(0)| = |1 0 1\rangle\langle 1 0 1|
-$$
-
-**行列表現**:
-
-$$
-\rho(0) = \begin{pmatrix}
-0 & 0 & \cdots & 0 \\
-0 & 0 & \cdots & 0 \\
-\vdots & \vdots & \ddots & \vdots \\
-0 & 0 & \cdots & 1 & \cdots & 0 \\
-\vdots & \vdots & \ddots & \vdots \\
-0 & 0 & \cdots & 0
-\end{pmatrix}_{27 \times 27}
-$$
-
-ここで、$(10, 10)$ 要素（0-indexed）が1です。
-
-### 6.9 時間発展の数値例
-
-#### 6.9.1 エネルギー移動による状態変化
-
-初期状態 $|1 0 1\rangle$ にハミルトニアン $H_{\text{ET}}^{AB}$ を作用させると：
-
-$$
-H_{\text{ET}}^{AB} = V_{\text{ET}} X_{01}^{(A)} \otimes X_{01}^{(B)} \otimes I^{(C)}
-$$
-
-**短時間発展** ($t \ll 1/V_{\text{ET}}$):
-
-摂動論的に：
-
 $$
-|\psi(t)\rangle \approx |\psi(0)\rangle - \frac{i}{\hbar}H t|\psi(0)\rangle
+L_{\text{TTA}}^{AB,2} = \sqrt{\gamma_{\text{TTA}}} (|0\rangle\langle 1|)^{(A)} \otimes (|2\rangle\langle 1|)^{(B)} \otimes I^{(C)}
 $$
 
-$$
-\begin{aligned}
-H_{\text{ET}}^{AB} |1 0 1\rangle &= V_{\text{ET}} (X_{01}^{(A)} \otimes X_{01}^{(B)} \otimes I^{(C)}) \cdot (|1\rangle^{(A)} \otimes |0\rangle^{(B)} \otimes |1\rangle^{(C)}) \\
-&= V_{\text{ET}} (X_{01}^{(A)} |1\rangle^{(A)}) \otimes (X_{01}^{(B)} |0\rangle^{(B)}) \otimes (I^{(C)} |1\rangle^{(C)}) \\
-&= V_{\text{ET}} |0\rangle^{(A)} \otimes |1\rangle^{(B)} \otimes |1\rangle^{(C)} \\
-&= V_{\text{ET}} |0 1 1\rangle
-\end{aligned}
-$$
-
-したがって、短時間発展は：
-
-$$
-|\psi(t)\rangle \approx |1 0 1\rangle - \frac{iV_{\text{ET}}t}{\hbar} |0 1 1\rangle
-$$
-
-規格化すると：
-
-$$
-|\psi(t)\rangle \approx \frac{1}{\sqrt{1 + (V_{\text{ET}}t/\hbar)^2}} \left( |1 0 1\rangle - \frac{iV_{\text{ET}}t}{\hbar} |0 1 1\rangle \right)
-$$
-
-**長時間発展** (任意の $t$):
-
-ハミルトニアン $H_{\text{ET}}^{AB}$ だけを考慮すると、2準位系の問題に帰着します（$|1 0 1\rangle$ と $|0 1 1\rangle$ の部分空間）：
-
-$$
-H_{\text{effective}} = V_{\text{ET}} \begin{pmatrix}
-0 & 1 \\
-1 & 0
-\end{pmatrix}
-$$
-
-固有値：$\pm V_{\text{ET}}$
-
-固有ベクトル：
-
-$$
-\begin{aligned}
-|+\rangle &= \frac{1}{\sqrt{2}}(|1 0 1\rangle + |0 1 1\rangle) \quad (\text{固有値: } +V_{\text{ET}}) \\
-|-\rangle &= \frac{1}{\sqrt{2}}(|1 0 1\rangle - |0 1 1\rangle) \quad (\text{固有値: } -V_{\text{ET}})
-\end{aligned}
-$$
-
-初期状態を固有状態で展開：
+**Heisenberg-Weyl基底での表現**：
 
-$$
-|1 0 1\rangle = \frac{1}{\sqrt{2}}(|+\rangle + |-\rangle)
-$$
-
-時間発展：
-
-$$
-\begin{aligned}
-|\psi(t)\rangle &= \frac{1}{\sqrt{2}}\left(e^{-iV_{\text{ET}}t/\hbar}|+\rangle + e^{iV_{\text{ET}}t/\hbar}|-\rangle\right) \\
-&= \frac{1}{\sqrt{2}}\left(e^{-iV_{\text{ET}}t/\hbar} \cdot \frac{1}{\sqrt{2}}(|1 0 1\rangle + |0 1 1\rangle) + e^{iV_{\text{ET}}t/\hbar} \cdot \frac{1}{\sqrt{2}}(|1 0 1\rangle - |0 1 1\rangle)\right) \\
-&= \frac{1}{2}\left((e^{-iV_{\text{ET}}t/\hbar} + e^{iV_{\text{ET}}t/\hbar})|1 0 1\rangle + (e^{-iV_{\text{ET}}t/\hbar} - e^{iV_{\text{ET}}t/\hbar})|0 1 1\rangle\right) \\
-&= \cos\left(\frac{V_{\text{ET}}t}{\hbar}\right)|1 0 1\rangle - i\sin\left(\frac{V_{\text{ET}}t}{\hbar}\right)|0 1 1\rangle
-\end{aligned}
-$$
-
-**ポピュレーション**:
-
-$$
-\begin{aligned}
-p_{101}(t) &= |\langle 1 0 1|\psi(t)\rangle|^2 = \cos^2\left(\frac{V_{\text{ET}}t}{\hbar}\right) \\
-p_{011}(t) &= |\langle 0 1 1|\psi(t)\rangle|^2 = \sin^2\left(\frac{V_{\text{ET}}t}{\hbar}\right)
-\end{aligned}
-$$
+$(|2\rangle\langle 1|)^{(A)}$ の導出：
 
-これは、ラビ振動を示しています。周期 $T = \frac{\pi\hbar}{V_{\text{ET}}}$ でポピュレーションが振動します。
-
-#### 6.9.2 TTA過程による非可逆変化
-
-状態 $|1 1 c\rangle$ （例：$c = 0$）にリンドブラッド演算子 $L_{\text{TTA}}^{AB,1}$ が作用する場合を考えます。
-
-**リンドブラッド方程式**（TTA項のみ、簡略化のため $k = 1$ のみ）:
-
 $$
-\frac{d\rho}{dt} = L_1 \rho L_1^\dagger - \frac{1}{2}\{L_1^\dagger L_1, \rho\}
+|2\rangle\langle 1| = X|1\rangle\langle 1|
 $$
-
-初期状態が純粋状態 $\rho(0) = |1 1 0\rangle\langle 1 1 0|$ の場合：
 
-**$L_1 \rho(0) L_1^\dagger$ の計算**:
+まず $|1\rangle\langle 1|$ を求めます：
 
 $$
-\begin{aligned}
-L_1 |1 1 0\rangle &= \sqrt{\gamma_{\text{TTA}}} |2 0 0\rangle \\
-\langle 1 1 0| L_1^\dagger &= \sqrt{\gamma_{\text{TTA}}} \langle 2 0 0|
-\end{aligned}
+|1\rangle\langle 1| = \frac{1}{3}(I + \omega^2 Z + \omega Z^2)
 $$
 
-$$
-L_1 \rho(0) L_1^\dagger = \gamma_{\text{TTA}} |2 0 0\rangle\langle 2 0 0|
-$$
-
-**$L_1^\dagger L_1 \rho(0)$ の計算**:
-
-$$
-L_1^\dagger L_1 = \gamma_{\text{TTA}} |1 1\rangle\langle 1 1|^{(AB)} \otimes I^{(C)}
-$$
+したがって：
 
 $$
-L_1^\dagger L_1 \rho(0) = \gamma_{\text{TTA}} |1 1 0\rangle\langle 1 1 0|
+|2\rangle\langle 1| = \frac{1}{3}X(I + \omega^2 Z + \omega Z^2) = \frac{1}{3}(X + \omega^2 XZ + \omega XZ^2)
 $$
 
 同様に：
 
 $$
-\rho(0) L_1^\dagger L_1 = \gamma_{\text{TTA}} |1 1 0\rangle\langle 1 1 0|
+|0\rangle\langle 1| = \frac{1}{3}(X^2 + Z^2 X^2 + Z X^2) = \frac{1}{3}X^2(I + Z^2 + Z)
 $$
 
-**リンドブラッド方程式の右辺**:
-
-$$
-\begin{aligned}
-\frac{d\rho}{dt}\bigg|_{t=0} &= \gamma_{\text{TTA}} |2 0 0\rangle\langle 2 0 0| - \frac{1}{2} \cdot \gamma_{\text{TTA}} |1 1 0\rangle\langle 1 1 0| - \frac{1}{2} \cdot \gamma_{\text{TTA}} |1 1 0\rangle\langle 1 1 0| \\
-&= \gamma_{\text{TTA}} \left( |2 0 0\rangle\langle 2 0 0| - |1 1 0\rangle\langle 1 1 0| \right)
-\end{aligned}
-$$
-
-**短時間近似**:
-
-$$
-\rho(t) \approx \rho(0) + t \frac{d\rho}{dt}\bigg|_{t=0}
-$$
-
-$$
-\rho(t) \approx (1 - \gamma_{\text{TTA}} t) |1 1 0\rangle\langle 1 1 0| + \gamma_{\text{TTA}} t |2 0 0\rangle\langle 2 0 0|
-$$
-
-これは、状態 $|1 1 0\rangle$ （$|T_1 T_1 S_0\rangle$）から状態 $|2 0 0\rangle$ （$|S_1 S_0 S_0\rangle$）への指数関数的な移行を示しています。
-
-**長時間発展** ($\gamma_{\text{TTA}} t \gg 1$):
-
-対角要素のみを考慮すると：
+したがって：
 
 $$
 \begin{aligned}
-\rho_{110,110}(t) &= e^{-\gamma_{\text{TTA}} t} \\
-\rho_{200,200}(t) &= 1 - e^{-\gamma_{\text{TTA}} t}
+L_{\text{TTA}}^{AB,1} = \frac{\sqrt{\gamma_{\text{TTA}}}}{9} \bigg[
+&(X + \omega^2 XZ + \omega XZ^2)^{(A)} \\
+&\otimes (X^2 + Z^2 X^2 + Z X^2)^{(B)} \\
+&\otimes I^{(C)}
+\bigg]
 \end{aligned}
 $$
 
-（注：これは、他のリンドブラッド演算子 $L_2, L_3, L_4$ の効果を無視した簡略化です。実際には、状態 $|0 2 0\rangle$ へのポピュレーション移行も考慮する必要があります。）
+これは9項のテンソル積の和となります。
 
-### 6.10 ポピュレーションダイナミクスの予測
+**完全展開**（$L_{\text{TTA}}^{AB,1}$）：
 
-#### 6.10.1 初期段階（エネルギー移動が支配的）
+$$
+\begin{aligned}
+L_{\text{TTA}}^{AB,1} = \frac{\sqrt{\gamma_{\text{TTA}}}}{9} \bigg[
+&X^{(A)} \otimes X^{2(B)} \otimes I^{(C)} \\
+&+ X^{(A)} \otimes Z^{2(B)}X^{2(B)} \otimes I^{(C)} \\
+&+ X^{(A)} \otimes Z^{(B)}X^{2(B)} \otimes I^{(C)} \\
+&+ \omega^2 X^{(A)}Z^{(A)} \otimes X^{2(B)} \otimes I^{(C)} \\
+&+ \omega^2 X^{(A)}Z^{(A)} \otimes Z^{2(B)}X^{2(B)} \otimes I^{(C)} \\
+&+ \omega^2 X^{(A)}Z^{(A)} \otimes Z^{(B)}X^{2(B)} \otimes I^{(C)} \\
+&+ \omega X^{(A)}Z^{2(A)} \otimes X^{2(B)} \otimes I^{(C)} \\
+&+ \omega X^{(A)}Z^{2(A)} \otimes Z^{2(B)}X^{2(B)} \otimes I^{(C)} \\
+&+ \omega X^{(A)}Z^{2(A)} \otimes Z^{(B)}X^{2(B)} \otimes I^{(C)}
+\bigg]
+\end{aligned}
+$$
 
-時刻 $t = 0$：$p_{101} = 1$、他はすべて0
+同様に $L_{\text{TTA}}^{AB,2}$ も構成できます。
 
-時刻 $t \sim \pi\hbar/(4V_{\text{ET}})$：
+#### 6.4.2 B-C間のTTA過程
 
-- $p_{101} \approx 0.5$
-- $p_{011} \approx 0.25$ （A-B間のエネルギー移動）
-- $p_{110} \approx 0.25$ （B-C間のエネルギー移動）
+$$
+L_{\text{TTA}}^{BC,1} = \sqrt{\gamma_{\text{TTA}}} I^{(A)} \otimes (|2\rangle\langle 1|)^{(B)} \otimes (|0\rangle\langle 1|)^{(C)}
+$$
 
-#### 6.10.2 中間段階（TTAが開始）
+$$
+L_{\text{TTA}}^{BC,2} = \sqrt{\gamma_{\text{TTA}}} I^{(A)} \otimes (|0\rangle\langle 1|)^{(B)} \otimes (|2\rangle\langle 1|)^{(C)}
+$$
 
-エネルギー移動により、$|0 1 1\rangle$ や $|1 1 0\rangle$ の状態が生成されると、TTA過程が活性化されます。
+Heisenberg-Weyl基底での展開は $L_{\text{TTA}}^{AB,1}$, $L_{\text{TTA}}^{AB,2}$ と同様です。
 
-- $|0 1 1\rangle$ の一部が $|0 2 0\rangle$ または $|0 0 2\rangle$ に遷移
-- $|1 1 0\rangle$ の一部が $|2 0 0\rangle$ または $|0 2 0\rangle$ に遷移
+### 6.5 Lindbladマスター方程式
 
-#### 6.10.3 最終段階（定常状態）
+全体のダイナミクスは以下のLindbladマスター方程式で記述されます：
 
-長時間後（$t \gg 1/\gamma_{\text{TTA}}$）、すべての三重項状態が消費され、一重項状態のみが残ります：
+$$
+\frac{d\rho}{dt} = -\frac{i}{\hbar}[H_{\text{total}}, \rho] + \sum_k \mathcal{D}[L_k]\rho
+$$
 
-- $p_{S_1 S_0 S_0}$、$p_{S_0 S_1 S_0}$、$p_{S_0 S_0 S_1}$ が有限の値を持つ
-- $p_{T_1 * *}$、$p_{* T_1 *}$、$p_{* * T_1}$ はすべてほぼ0
+ここで：
 
-**エネルギー保存則の検証**:
+$$
+H_{\text{total}} = H_0 + H_{\text{ET}}^{AB} + H_{\text{ET}}^{BC}
+$$
 
-初期エネルギー：$E(0) = 2E_T$ （2つの三重項状態）
+$$
+\mathcal{D}[L_k]\rho = L_k \rho L_k^\dagger - \frac{1}{2}\{L_k^\dagger L_k, \rho\}
+$$
 
-最終エネルギー：$E(\infty) \approx E_S$ （1つの一重項励起状態）
+リンドブラッド演算子：
 
-散逸エネルギー：$\Delta E = 2E_T - E_S > 0$ （TTA過程で熱として放出）
+$$
+\{L_k\} = \{L_{\text{TTA}}^{AB,1}, L_{\text{TTA}}^{AB,2}, L_{\text{TTA}}^{BC,1}, L_{\text{TTA}}^{BC,2}\}
+$$
 
-### 6.11 Qudit表現の利点
+### 6.6 数値実装のための要約
 
-#### 6.11.1 状態空間の効率性
+**実装手順**：
 
-- **Qubit表現**: 6 qubits → $2^6 = 64$ 次元（未使用：37次元）
-- **Qudit表現**: 3 qutrits → $3^3 = 27$ 次元（すべて物理的）
+1. **基本演算子の定義**：
+   ```python
+   omega = np.exp(2j * np.pi / 3)
+   X = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+   Z = np.diag([1, omega, omega**2])
+   I3 = np.eye(3)
+   ```
 
-効率：$27/64 \approx 42\%$ の状態空間のみで表現可能
+2. **射影演算子**：
+   ```python
+   P0 = (I3 + Z + Z@Z) / 3
+   P1 = (I3 + omega**2 * Z + omega * Z@Z) / 3
+   P2 = (I3 + omega * Z + omega**2 * Z@Z) / 3
+   ```
 
-#### 6.11.2 演算子の自然な表現
+3. **遷移演算子**：
+   ```python
+   X01 = X @ P0 + (X@X) @ P1  # |0><1| + |1><0|
+   ```
 
-3準位系の演算子を直接表現できるため：
+4. **ハミルトニアン**：
+   ```python
+   H_free = E_T1 * P1 + E_S1 * P2
+   H_ET_AB = V_ET * np.kron(np.kron(X01, X01), I3)
+   ```
 
-- ハミルトニアンとリンドブラッド演算子の構成が直感的
-- Gell-Mann行列による明確な数学的基盤
-- 物理的遷移（$S_0 \leftrightarrow T_1$、$T_1 \leftrightarrow S_1$ など）が直接対応
+5. **リンドブラッド演算子**：
+   ```python
+   L21 = X @ P1  # |2><1|
+   L01 = (X@X) @ P1  # |0><1|
+   L_TTA_AB_1 = np.sqrt(gamma) * np.kron(np.kron(L21, L01), I3)
+   ```
 
-#### 6.11.3 計算コストの削減
+### 6.7 Heisenberg-Weyl基底の利点
 
-- 状態ベクトル：27次元 vs 64次元 → メモリ使用量 42%
-- 密度演算子：$27 \times 27 = 729$ vs $64 \times 64 = 4096$ → メモリ使用量 18%
-- 時間発展計算の高速化
+1. **周期的構造**：シフト演算子 $X$ とクロック演算子 $Z$ は自然な周期性を持つ
 
-#### 6.11.4 物理的解釈の明確化
+2. **Weyl関係式**：$ZX = \omega XZ$ という単純な交換関係
 
-Qudit表現では、各qutrit準位が直接物理状態（$S_0$、$T_1$、$S_1$）に対応するため：
+3. **ユニタリ性**：$X$ と $Z$ は両方ともユニタリ
 
-- シミュレーション結果の解釈が容易
+4. **完全性**：$\{X^k Z^l\}$ が完全な演算子基底を形成
+
+5. **量子情報理論との親和性**：量子エラー訂正、量子テレポーテーションなどで自然に現れる
+
+6. **離散Fourier変換**：Heisenberg-Weyl演算子は離散Fourier変換と密接に関連
+
+7. **数値的安定性**：明確な代数的構造により数値計算が安定
+
+### 6.8 Gell-Mann行列との比較
+
+**Gell-Mann行列**（SU(3)の生成子）：
+- 8つの独立なエルミート演算子
+- Lie代数の構造を反映
+- 粒子物理学で標準的
+
+**Heisenberg-Weyl演算子**（有限位相空間の演算子）：
+- シフト演算子とクロック演算子の積
+- 離散的な位相空間構造
+- 量子情報処理で標準的
+
+本チュートリアルでは、量子回路実装とqudit量子計算の観点から、**Heisenberg-Weyl基底**を採用します。この選択により：
+
+- 量子ゲートの構成が自然
+- MQT（Munich Quantum Toolkit）などのquditシミュレータとの親和性が高い
+- 物理的解釈が直感的（シフトと位相）
+
+### 6.9 理論の厳密性について
+
+本セクションでは、以下の点を保証します：
+
+1. **すべての演算子を明示的に構成**：近似や省略なし
+
+2. **すべての導出を示す**：行列計算を完全に記述
+
+3. **数値的検証**：すべての性質を数値的に確認可能
+
+4. **物理的整合性**：Lindbladマスター方程式の完全な形式を使用
+
+5. **ヒューリスティックな処理の排除**：すべての手順が数学的に厳密
+
+この厳密なアプローチにより、qudit表現の正確性と信頼性を確保します。
 - デバッグとバリデーションが簡単
 - 実験との比較が直接的
 
