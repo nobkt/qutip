@@ -45,3 +45,4 @@ benchmark/benchmark_data.js
 *compiled_coeff*
 result_images/
 __pycache__/
+*.backup
